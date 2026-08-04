@@ -1,0 +1,260 @@
+/* ==========================================================================
+   Thiranex Solutions Enterprise Dashboard Stylesheet
+   Design System: Glassmorphism, Neon Accents, Modern Typography & Responsive Layout
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap');
+
+:root {
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --secondary: #8b5cf6;
+  --accent: #ec4899;
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --info: #06b6d4;
+  
+  /* Dark Theme Default Variables */
+  --bg-dark: #0f172a;
+  --card-bg-dark: rgba(30, 41, 59, 0.7);
+  --card-border-dark: rgba(255, 255, 255, 0.08);
+  --text-dark: #f8fafc;
+  --text-muted-dark: #94a3b8;
+
+  /* Light Theme Variables */
+  --bg-light: #f8fafc;
+  --card-bg-light: rgba(255, 255, 255, 0.85);
+  --card-border-light: rgba(0, 0, 0, 0.08);
+  --text-light: #0f172a;
+  --text-muted-light: #64748b;
+}
+
+/* Global Font & Smooth Scaling */
+html, body, [class*="css"] {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Outfit', sans-serif !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* Hide Default Streamlit Header & Footer elements if desired */
+#MainMenu {visibility: hidden;}
+header {visibility: hidden;}
+footer {visibility: hidden;}
+
+/* Custom Main Container Padding */
+.main .block-container {
+  padding-top: 1.5rem !important;
+  padding-bottom: 3rem !important;
+  max-width: 95% !important;
+}
+
+/* Glassmorphism Card Container Base */
+.tx-glass-card {
+  background: var(--card-bg-dark);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--card-border-dark);
+  border-radius: 16px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.tx-glass-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 35px -10px rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+/* Light Mode Overrides */
+.stApp[data-theme="light"] .tx-glass-card,
+body.light-theme .tx-glass-card {
+  background: var(--card-bg-light);
+  border: 1px solid var(--card-border-light);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+}
+
+/* KPI Metric Display */
+.tx-kpi-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.tx-kpi-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted-dark);
+}
+
+.tx-kpi-value {
+  font-family: 'Outfit', sans-serif;
+  font-size: 2.1rem;
+  font-weight: 800;
+  color: var(--text-dark);
+  margin: 0.2rem 0;
+  line-height: 1.1;
+}
+
+.tx-kpi-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.tx-badge-positive {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.tx-badge-negative {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.tx-badge-neutral {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.tx-kpi-subtext {
+  font-size: 0.78rem;
+  color: var(--text-muted-dark);
+  margin-top: 0.3rem;
+}
+
+/* Header & Banner Styling */
+.tx-header-banner {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 50%, rgba(236, 72, 153, 0.1) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 20px;
+  padding: 1.5rem 2rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tx-header-title {
+  font-size: 2rem;
+  font-weight: 800;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 0;
+}
+
+.tx-header-subtitle {
+  font-size: 0.95rem;
+  color: var(--text-muted-dark);
+  margin-top: 0.25rem;
+}
+
+/* Filter Badge Pill */
+.tx-filter-pill {
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  padding: 0.25rem 0.75rem;
+  border-radius: 30px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Custom Executive Summary Box */
+.tx-ai-summary-box {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
+  border-left: 4px solid #8b5cf6;
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin: 1rem 0;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.tx-ai-summary-box h4 {
+  color: #c084fc;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Footer Container */
+.tx-footer {
+  margin-top: 4rem;
+  padding: 1.5rem 0;
+  border-top: 1px solid var(--card-border-dark);
+  text-align: center;
+  color: var(--text-muted-dark);
+  font-size: 0.85rem;
+}
+
+/* Streamlit Tabs Customization */
+.stTabs [data-baseweb="tab-list"] {
+  gap: 8px;
+  background-color: rgba(15, 23, 42, 0.4);
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.stTabs [data-baseweb="tab"] {
+  height: 42px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #94a3b8;
+  padding: 0 16px;
+}
+
+.stTabs [aria-selected="true"] {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+/* Smooth Table Preview Styling */
+.stDataFrame {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--card-border-dark);
+}
+
+/* Tooltip Custom styling */
+.tx-tooltip {
+  position: relative;
+  display: inline-block;
+  cursor: help;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .tx-header-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .tx-kpi-value {
+    font-size: 1.6rem;
+  }
+}
