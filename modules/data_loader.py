@@ -1,7 +1,7 @@
 """
 Module: data_loader.py
-Description: Handles file loading for CSV, Excel, and JSON formats, as well as 
-             synthetic sample data generation for Thiranex Solutions.
+Description: Handles synthetic customer dataset generation with 3 realistic segments 
+             and custom file uploads (CSV, Excel, JSON) for Thiranex Solutions.
 """
 
 import io
@@ -9,98 +9,132 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 from typing import Tuple, Optional
+from datetime import datetime, timedelta
 
 
 @st.cache_data(show_spinner=False)
-def generate_sample_data(num_rows: int = 500) -> pd.DataFrame:
+def generate_sample_data(num_rows: int = 1000) -> pd.DataFrame:
     """
-    Generates realistic, synthetic sales transaction dataset for Thiranex Solutions.
-
-    Args:
-        num_rows (int): Number of synthetic sales records to generate. Default 500.
+    Generates 1000+ realistic synthetic customer records with 3 distinct behavioral segments:
+    1. High-Value Premium (20%): High spend, high frequency, high income
+    2. Regular Bargain (35%): Medium spend, medium frequency, price-sensitive
+    3. Occasional Explorers (45%): Low spend, low frequency, exploring products
 
     Returns:
-        pd.DataFrame: Structured sales data with dates, products, categories, 
-                     regions, salespersons, quantities, prices, revenue, and payment methods.
+        pd.DataFrame: Comprehensive customer dataset ready for segmentation & ML analysis.
     """
     np.random.seed(42)
 
-    # Date range across 12 full months (Jan 2025 to Dec 2025)
-    start_date = pd.Timestamp("2025-01-01")
-    end_date = pd.Timestamp("2025-12-31")
-    date_range = pd.date_range(start=start_date, end=end_date, freq="D")
-    dates = np.random.choice(date_range, size=num_rows)
-    dates.sort()
+    # Segment allocation ratios
+    n_premium = int(num_rows * 0.20)
+    n_regular = int(num_rows * 0.35)
+    n_occasional = num_rows - n_premium - n_regular
 
-    # Product catalog structure: (Product Name, Category, Base Price)
-    catalog = [
-        ("Cloud Analytics Suite", "Enterprise Software", 1200.0),
-        ("CyberGuard Shield Pro", "Enterprise Software", 850.0),
-        ("AI Predictive Insights Engine", "Enterprise Software", 2100.0),
-        ("Thiranex IoT Gateway X1", "Hardware & Sensors", 450.0),
-        ("Smart Sensor Hub Enterprise", "Hardware & Sensors", 320.0),
-        ("Edge Computing Station", "Hardware & Sensors", 1600.0),
-        ("Managed Cloud Operations", "Consulting Services", 3500.0),
-        ("DevOps Migration Package", "Consulting Services", 2800.0),
-        ("Security Audit & Compliance", "Consulting Services", 1950.0),
-        ("24/7 Priority SLA Support", "Consulting Services", 900.0),
-    ]
+    categories_pool = ["Electronics", "Clothing", "Grocery", "Home", "Beauty", "Sports", "Books", "Toys"]
+    payment_pool = ["Credit Card", "Debit Card", "UPI", "Cash", "Net Banking"]
+    occupations_pool = ["Professional", "Student", "Retired", "Business", "Freelancer", "Homemaker"]
+    locations_pool = ["North", "South", "East", "West", "Central"]
+    genders_pool = ["Male", "Female", "Other"]
 
-    selected_catalog_indices = np.random.choice(len(catalog), size=num_rows)
-    
-    products = [catalog[i][0] for i in selected_catalog_indices]
-    categories = [catalog[i][1] for i in selected_catalog_indices]
-    base_prices = np.array([catalog[i][2] for i in selected_catalog_indices])
+    today = datetime.now()
 
-    # Dynamic pricing variability (+/- 10%)
-    price_multipliers = np.random.uniform(0.90, 1.10, size=num_rows)
-    unit_prices = np.round(base_prices * price_multipliers, 2)
+    # --- 1. High-Value Premium Segment (20%) ---
+    premium_ids = [f"CUST-{i+1:04d}" for i in range(n_premium)]
+    premium_age = np.random.randint(28, 62, size=n_premium)
+    premium_gender = np.random.choice(genders_pool, size=n_premium, p=[0.48, 0.48, 0.04])
+    premium_location = np.random.choice(locations_pool, size=n_premium, p=[0.30, 0.25, 0.20, 0.15, 0.10])
+    premium_income = np.random.randint(90000, 150001, size=n_premium)
+    premium_occ = np.random.choice(["Professional", "Business", "Freelancer"], size=n_premium, p=[0.60, 0.30, 0.10])
+    premium_spend = np.random.uniform(5500, 10000, size=n_premium)
+    premium_freq = np.random.randint(28, 51, size=n_premium)
+    premium_aov = np.round(premium_spend / premium_freq, 2)
+    premium_cats = [", ".join(np.random.choice(categories_pool, size=np.random.randint(3, 6), replace=False)) for _ in range(n_premium)]
+    premium_last_days = np.random.randint(1, 45, size=n_premium)
+    premium_since_days = np.random.randint(365, 1095, size=n_premium)
+    premium_pay = np.random.choice(payment_pool, size=n_premium, p=[0.55, 0.15, 0.20, 0.02, 0.08])
+    premium_sat = np.random.choice([4, 5], size=n_premium, p=[0.30, 0.70])
 
-    # Order quantities (1 to 15 units)
-    quantities = np.random.randint(1, 16, size=num_rows)
-    revenue = np.round(unit_prices * quantities, 2)
+    # --- 2. Regular Bargain Segment (35%) ---
+    start_idx = n_premium
+    regular_ids = [f"CUST-{start_idx + i + 1:04d}" for i in range(n_regular)]
+    regular_age = np.random.randint(22, 65, size=n_regular)
+    regular_gender = np.random.choice(genders_pool, size=n_regular, p=[0.47, 0.49, 0.04])
+    regular_location = np.random.choice(locations_pool, size=n_regular, p=[0.20, 0.25, 0.25, 0.15, 0.15])
+    regular_income = np.random.randint(45000, 90000, size=n_regular)
+    regular_occ = np.random.choice(occupations_pool, size=n_regular, p=[0.35, 0.15, 0.10, 0.15, 0.15, 0.10])
+    regular_spend = np.random.uniform(1800, 5499, size=n_regular)
+    regular_freq = np.random.randint(12, 28, size=n_regular)
+    regular_aov = np.round(regular_spend / regular_freq, 2)
+    regular_cats = [", ".join(np.random.choice(categories_pool, size=np.random.randint(2, 4), replace=False)) for _ in range(n_regular)]
+    regular_last_days = np.random.randint(10, 120, size=n_regular)
+    regular_since_days = np.random.randint(180, 1000, size=n_regular)
+    regular_pay = np.random.choice(payment_pool, size=n_regular, p=[0.25, 0.35, 0.25, 0.05, 0.10])
+    regular_sat = np.random.choice([3, 4, 5], size=n_regular, p=[0.25, 0.55, 0.20])
 
-    # Demographic dimensions
-    regions = np.random.choice(["North", "South", "East", "West", "Central"], size=num_rows, p=[0.25, 0.25, 0.20, 0.20, 0.10])
-    salespersons = np.random.choice(["Aarav Sharma", "Priya Patel", "Vikram Malhotra", "Ananya Reddy", "Rahul Verma"], size=num_rows)
-    payment_methods = np.random.choice(["Credit Card", "UPI", "Bank Wire", "Corporate Net Banking"], size=num_rows, p=[0.35, 0.35, 0.15, 0.15])
-    
-    customer_ids = [f"CUST-{np.random.randint(1000, 9999)}" for _ in range(num_rows)]
-    order_ids = [f"TX-ORD-{10000 + i}" for i in range(num_rows)]
+    # --- 3. Occasional Explorers Segment (45%) ---
+    start_idx = n_premium + n_regular
+    occ_ids = [f"CUST-{start_idx + i + 1:04d}" for i in range(n_occasional)]
+    occ_age = np.random.randint(18, 70, size=n_occasional)
+    occ_gender = np.random.choice(genders_pool, size=n_occasional, p=[0.46, 0.50, 0.04])
+    occ_location = np.random.choice(locations_pool, size=n_occasional, p=[0.18, 0.22, 0.20, 0.22, 0.18])
+    occ_income = np.random.randint(20000, 50000, size=n_occasional)
+    occ_occ = np.random.choice(occupations_pool, size=n_occasional, p=[0.20, 0.35, 0.15, 0.05, 0.15, 0.10])
+    occ_spend = np.random.uniform(100, 1799, size=n_occasional)
+    occ_freq = np.random.randint(1, 12, size=n_occasional)
+    occ_aov = np.round(occ_spend / occ_freq, 2)
+    occ_cats = [", ".join(np.random.choice(categories_pool, size=np.random.randint(1, 3), replace=False)) for _ in range(n_occasional)]
+    occ_last_days = np.random.randint(30, 365, size=n_occasional)
+    occ_since_days = np.random.randint(30, 730, size=n_occasional)
+    occ_pay = np.random.choice(payment_pool, size=n_occasional, p=[0.15, 0.30, 0.40, 0.10, 0.05])
+    occ_sat = np.random.choice([1, 2, 3, 4], size=n_occasional, p=[0.15, 0.25, 0.40, 0.20])
+
+    # Combine lists
+    cust_ids = premium_ids + regular_ids + occ_ids
+    ages = np.concatenate([premium_age, regular_age, occ_age])
+    genders = np.concatenate([premium_gender, regular_gender, occ_gender])
+    locations = np.concatenate([premium_location, regular_location, occ_location])
+    incomes = np.concatenate([premium_income, regular_income, occ_income])
+    occupations = np.concatenate([premium_occ, regular_occ, occ_occ])
+    spends = np.round(np.concatenate([premium_spend, regular_spend, occ_spend]), 2)
+    freqs = np.concatenate([premium_freq, regular_freq, occ_freq])
+    aovs = np.round(np.concatenate([premium_aov, regular_aov, occ_aov]), 2)
+    cats = premium_cats + regular_cats + occ_cats
+    last_days = np.concatenate([premium_last_days, regular_last_days, occ_last_days])
+    since_days = np.concatenate([premium_since_days, regular_since_days, occ_since_days])
+    payments = np.concatenate([premium_pay, regular_pay, occ_pay])
+    satisfactions = np.concatenate([premium_sat, regular_sat, occ_sat])
+
+    last_purchase_dates = [(today - timedelta(days=int(d))).strftime("%Y-%m-%d") for d in last_days]
+    customer_since_dates = [(today - timedelta(days=int(d))).strftime("%Y-%m-%d") for d in since_days]
+    order_counts = freqs  # Equivalent to purchase frequency
 
     df = pd.DataFrame({
-        "Order ID": order_ids,
-        "Date": dates,
-        "Customer ID": customer_ids,
-        "Product": products,
-        "Category": categories,
-        "Region": regions,
-        "Salesperson": salespersons,
-        "Quantity": quantities,
-        "Unit Price ($)": unit_prices,
-        "Total Revenue ($)": revenue,
-        "Payment Method": payment_methods
+        "Customer ID": cust_ids,
+        "Age": ages,
+        "Gender": genders,
+        "Location": locations,
+        "Income": incomes,
+        "Occupation": occupations,
+        "Total Spend ($)": spends,
+        "Purchase Frequency": freqs,
+        "Order Count": order_counts,
+        "Average Order Value ($)": aovs,
+        "Product Categories Purchased": cats,
+        "Last Purchase Date": last_purchase_dates,
+        "Customer Since": customer_since_dates,
+        "Preferred Payment": payments,
+        "Satisfaction Score": satisfactions
     })
 
-    # Introduce minor deliberate anomalies for AI Isolation Forest to detect
-    anomaly_indices = [15, 88, 230, 412]
-    for idx in anomaly_indices:
-        df.at[idx, "Total Revenue ($)"] = df.at[idx, "Total Revenue ($)"] * 6.5
-        df.at[idx, "Quantity"] = df.at[idx, "Quantity"] * 5
-
+    # Shuffle rows to avoid contiguous order
+    df = df.sample(frac=1.0, random_state=42).reset_index(drop=True)
     return df
 
 
 @st.cache_data(show_spinner=False)
 def load_uploaded_file(uploaded_file) -> Tuple[Optional[pd.DataFrame], Optional[str]]:
     """
-    Parses user uploaded CSV, Excel, or JSON files into a Pandas DataFrame.
-
-    Args:
-        uploaded_file: Streamlit UploadedFile object.
-
-    Returns:
-        Tuple[Optional[pd.DataFrame], Optional[str]]: Loaded DataFrame and error message if any.
+    Parses uploaded CSV, Excel, or JSON file into pandas DataFrame.
     """
     if uploaded_file is None:
         return None, "No file uploaded."
@@ -118,11 +152,10 @@ def load_uploaded_file(uploaded_file) -> Tuple[Optional[pd.DataFrame], Optional[
             return None, f"Unsupported file format: {uploaded_file.name}. Please upload CSV, Excel, or JSON."
 
         if df.empty:
-            return None, "The uploaded file is empty."
+            return None, "The uploaded dataset is empty."
 
-        # Performance Optimization: Sampling datasets > 50,000 rows
         if len(df) > 50000:
-            st.info(f"⚡ Large dataset detected ({len(df):,} rows). Sampling 50,000 rows for optimal responsiveness.")
+            st.info(f"⚡ Dataset contains {len(df):,} rows. Downsampling 50,000 rows for optimal interactivity.")
             df = df.sample(n=50000, random_state=42).sort_index()
 
         return df, None

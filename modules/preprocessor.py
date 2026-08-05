@@ -1,185 +1,158 @@
 """
 Module: preprocessor.py
-Description: Smart auto-detection of column roles, data cleaning, and dataset profiling.
+Description: Smart column detection, dataset profiling summary, and feature extraction normalization.
 """
 
 import pandas as pd
 import numpy as np
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Tuple, List
+from sklearn.preprocessing import StandardScaler
 
 
-def detect_column_types(df: pd.DataFrame) -> Dict[str, Optional[str]]:
+def detect_column_types(df: pd.DataFrame) -> Dict[str, str]:
     """
-    Intelligently identifies semantic column roles (Date, Revenue, Quantity, Price, Product, etc.)
-    using pattern matching on header names and column data types.
-
-    Args:
-        df (pd.DataFrame): Input DataFrame.
-
-    Returns:
-        Dict[str, Optional[str]]: Dictionary mapping standard role names to actual column names.
+    Auto-detects customer-related demographic and behavioral columns in the DataFrame.
     """
-    column_mapping: Dict[str, Optional[str]] = {
-        "date": None,
-        "revenue": None,
-        "quantity": None,
-        "price": None,
-        "product": None,
-        "category": None,
-        "region": None,
-        "salesperson": None,
-        "customer": None,
-        "payment_method": None
+    cols = {c.lower().strip(): c for c in df.columns}
+    mappings = {
+        "customer_id": None,
+        "age": None,
+        "gender": None,
+        "location": None,
+        "income": None,
+        "occupation": None,
+        "spend": None,
+        "frequency": None,
+        "aov": None,
+        "last_purchase_date": None,
+        "customer_since": None,
+        "categories": None,
+        "payment": None,
+        "satisfaction": None
     }
 
-    cols = list(df.columns)
-    cols_lower = {col: str(col).lower().strip().replace("_", " ").replace("-", " ") for col in cols}
+    keywords = {
+        "customer_id": ["customer id", "customer_id", "cust_id", "client_id", "id", "customer"],
+        "age": ["age", "customer_age", "years"],
+        "gender": ["gender", "sex"],
+        "location": ["location", "region", "city", "state", "country"],
+        "income": ["income", "annual_income", "salary", "earnings"],
+        "occupation": ["occupation", "job", "profession", "work"],
+        "spend": ["total spend ($)", "total_spend", "spend", "monetary", "total_revenue", "total_amount", "revenue"],
+        "frequency": ["purchase frequency", "frequency", "order count", "order_count", "total_orders", "orders"],
+        "aov": ["average order value ($)", "average_order_value", "aov", "avg_order_value", "avg_spend"],
+        "last_purchase_date": ["last purchase date", "last_purchase_date", "last_purchase", "recency_date", "last_order_date"],
+        "customer_since": ["customer since", "customer_since", "signup_date", "join_date", "created_at"],
+        "categories": ["product categories purchased", "product_categories", "categories", "category"],
+        "payment": ["preferred payment", "preferred_payment", "payment_method", "payment"],
+        "satisfaction": ["satisfaction score", "satisfaction_score", "satisfaction", "rating"]
+    }
 
-    # 1. Detect Date Column
-    for col, lower in cols_lower.items():
-        if any(term in lower for term in ["date", "time", "timestamp", "day", "month", "created at", "order date"]):
-            column_mapping["date"] = col
-            break
-
-    if not column_mapping["date"]:
-        for col in cols:
-            if pd.api.types.is_datetime64_any_dtype(df[col]):
-                column_mapping["date"] = col
+    for role, key_list in keywords.items():
+        for key in key_list:
+            if key in cols:
+                mappings[role] = cols[key]
                 break
 
-    # 2. Detect Revenue Column
-    for col, lower in cols_lower.items():
-        if any(term in lower for term in ["total revenue", "revenue", "total sales", "sales amount", "grand total", "net sales", "amount"]):
-            column_mapping["revenue"] = col
-            break
+    for role in mappings:
+        if mappings[role] is None:
+            for c_lower, c_actual in cols.items():
+                if role in c_lower:
+                    mappings[role] = c_actual
+                    break
 
-    # 3. Detect Quantity Column
-    for col, lower in cols_lower.items():
-        if any(term in lower for term in ["quantity", "qty", "units sold", "units", "volume", "items count"]):
-            column_mapping["quantity"] = col
-            break
-
-    # 4. Detect Unit Price Column
-    for col, lower in cols_lower.items():
-        if any(term in lower for term in ["unit price", "price", "rate", "unit cost", "cost per unit"]):
-            column_mapping["price"] = col
-            break
-
-    # 5. Detect Product Column
-    for col, lower in cols_lower.items():
-        if any(term in lower for term in ["product", "item", "sku", "product name", "item name", "service"]):
-            column_mapping["product"] = col
-            break
-
-    # 6. Detect Category Column
-    for col, lower in cols_lower.items():
-        if any(term in lower for term in ["category", "segment", "department", "product category", "group", "type"]):
-            column_mapping["category"] = col
-            break
-
-    # 7. Detect Region Column
-    for col, lower in cols_lower.items():
-        if any(term in lower for term in ["region", "country", "state", "territory", "location", "zone", "city"]):
-            column_mapping["region"] = col
-            break
-
-    # 8. Detect Salesperson Column
-    for col, lower in cols_lower.items():
-        if any(term in lower for term in ["salesperson", "sales rep", "rep", "agent", "account owner", "owner", "seller"]):
-            column_mapping["salesperson"] = col
-            break
-
-    # 9. Detect Customer Column
-    for col, lower in cols_lower.items():
-        if any(term in lower for term in ["customer", "client", "customer id", "client name", "account id", "user id"]):
-            column_mapping["customer"] = col
-            break
-
-    # 10. Detect Payment Method Column
-    for col, lower in cols_lower.items():
-        if any(term in lower for term in ["payment", "payment method", "pay mode", "payment type", "transaction type"]):
-            column_mapping["payment_method"] = col
-            break
-
-    return column_mapping
-
-
-def standardize_and_clean_data(df: pd.DataFrame, mappings: Dict[str, Optional[str]]) -> pd.DataFrame:
-    """
-    Standardizes data types, parses date formats, calculates derived columns if missing,
-    and strips extra whitespace from string fields.
-
-    Args:
-        df (pd.DataFrame): Raw uploaded DataFrame.
-        mappings (Dict[str, Optional[str]]): Auto-detected column mappings.
-
-    Returns:
-        pd.DataFrame: Cleaned and standardized DataFrame.
-    """
-    cleaned_df = df.copy()
-
-    # Parse dates
-    date_col = mappings.get("date")
-    if date_col and date_col in cleaned_df.columns:
-        cleaned_df[date_col] = pd.to_datetime(cleaned_df[date_col], errors="coerce")
-        # Drop rows where date failed to parse
-        cleaned_df = cleaned_df.dropna(subset=[date_col])
-
-    # Convert numeric columns safely
-    for key in ["revenue", "quantity", "price"]:
-        col = mappings.get(key)
-        if col and col in cleaned_df.columns:
-            if cleaned_df[col].dtype == object:
-                # Remove currency symbols ($ , € £ ₹)
-                cleaned_df[col] = cleaned_df[col].astype(str).str.replace(r"[^\d.-]", "", regex=True)
-            cleaned_df[col] = pd.to_numeric(cleaned_df[col], errors="coerce").fillna(0)
-
-    # Compute Revenue if missing but Quantity & Price exist
-    rev_col = mappings.get("revenue")
-    qty_col = mappings.get("quantity")
-    price_col = mappings.get("price")
-
-    if (not rev_col or rev_col not in cleaned_df.columns) and (qty_col and price_col):
-        cleaned_df["Calculated_Revenue"] = cleaned_df[qty_col] * cleaned_df[price_col]
-        mappings["revenue"] = "Calculated_Revenue"
-
-    # Clean categorical string columns
-    for key in ["product", "category", "region", "salesperson", "payment_method", "customer"]:
-        col = mappings.get(key)
-        if col and col in cleaned_df.columns:
-            cleaned_df[col] = cleaned_df[col].astype(str).str.strip()
-
-    return cleaned_df
+    return mappings
 
 
 def generate_data_profile(df: pd.DataFrame) -> Dict[str, Any]:
     """
-    Generates dataset profiling summary statistics (missing values, data types, unique counts).
-
-    Args:
-        df (pd.DataFrame): DataFrame to profile.
-
-    Returns:
-        Dict[str, Any]: Profiling metadata summary dictionary.
+    Generates dataset profiling summary including missing values, datatypes, and stats.
     """
-    null_counts = df.isnull().sum()
-    null_percentages = np.round((null_counts / len(df)) * 100, 2)
+    total_rows = len(df)
+    total_cols = len(df.columns)
+    memory_mb = round(df.memory_usage(deep=True).sum() / (1024 * 1024), 2)
 
-    profile_df = pd.DataFrame({
-        "Data Type": df.dtypes.astype(str),
-        "Non-Null Count": df.notnull().sum(),
-        "Missing Values": null_counts,
-        "Missing (%)": null_percentages,
-        "Unique Values": df.nunique()
-    })
+    col_profile = []
+    for col in df.columns:
+        dtype = str(df[col].dtype)
+        null_cnt = int(df[col].isnull().sum())
+        null_pct = round((null_cnt / total_rows) * 100, 1)
+        unique_cnt = int(df[col].nunique())
+        
+        sample_val = str(df[col].iloc[0]) if total_rows > 0 else ""
+        if len(sample_val) > 30:
+            sample_val = sample_val[:27] + "..."
 
-    memory_bytes = df.memory_usage(deep=True).sum()
-    memory_mb = round(memory_bytes / (1024 * 1024), 2)
+        col_profile.append({
+            "Column Name": col,
+            "Data Type": dtype,
+            "Missing Count": null_cnt,
+            "Missing %": f"{null_pct}%",
+            "Unique Values": unique_cnt,
+            "Sample Record": sample_val
+        })
 
+    profile_df = pd.DataFrame(col_profile)
     return {
-        "total_rows": len(df),
-        "total_columns": len(df.columns),
+        "total_rows": total_rows,
+        "total_columns": total_cols,
         "memory_mb": memory_mb,
-        "column_profile": profile_df,
-        "numeric_summary": df.describe(include=[np.number]).T if not df.select_dtypes(include=[np.number]).empty else None
+        "column_profile": profile_df
     }
+
+
+def extract_and_scale_features(df: pd.DataFrame, mappings: Dict[str, str]) -> Tuple[np.ndarray, List[str], pd.DataFrame]:
+    """
+    Extracts numerical clustering features (Spend, Frequency, AOV, Recency, Age, Income)
+    and applies StandardScaler normalization.
+    """
+    data_dict = {}
+
+    spend_col = mappings.get("spend")
+    if spend_col and spend_col in df.columns:
+        data_dict["Spend"] = pd.to_numeric(df[spend_col], errors="coerce").fillna(500)
+    else:
+        data_dict["Spend"] = df["Monetary_Val"] if "Monetary_Val" in df.columns else np.random.uniform(100, 5000, len(df))
+
+    freq_col = mappings.get("frequency")
+    if freq_col and freq_col in df.columns:
+        data_dict["Frequency"] = pd.to_numeric(df[freq_col], errors="coerce").fillna(5)
+    else:
+        data_dict["Frequency"] = df["Frequency_Val"] if "Frequency_Val" in df.columns else np.random.randint(1, 20, len(df))
+
+    aov_col = mappings.get("aov")
+    if aov_col and aov_col in df.columns:
+        data_dict["AOV"] = pd.to_numeric(df[aov_col], errors="coerce").fillna(100)
+    else:
+        data_dict["AOV"] = (data_dict["Spend"] / np.maximum(data_dict["Frequency"], 1)).round(2)
+
+    if "Recency_Days" in df.columns:
+        data_dict["Recency"] = df["Recency_Days"]
+    else:
+        date_col = mappings.get("last_purchase_date")
+        if date_col and date_col in df.columns:
+            dates = pd.to_datetime(df[date_col], errors="coerce")
+            max_d = dates.max() if not dates.isna().all() else pd.Timestamp.now()
+            data_dict["Recency"] = (max_d - dates).dt.days.fillna(180)
+        else:
+            data_dict["Recency"] = np.random.randint(1, 365, len(df))
+
+    age_col = mappings.get("age")
+    if age_col and age_col in df.columns:
+        data_dict["Age"] = pd.to_numeric(df[age_col], errors="coerce").fillna(35)
+    else:
+        data_dict["Age"] = np.random.randint(18, 65, len(df))
+
+    inc_col = mappings.get("income")
+    if inc_col and inc_col in df.columns:
+        data_dict["Income"] = pd.to_numeric(df[inc_col], errors="coerce").fillna(55000)
+    else:
+        data_dict["Income"] = np.random.randint(20000, 120000, len(df))
+
+    feature_df = pd.DataFrame(data_dict)
+    feature_names = list(feature_df.columns)
+
+    scaler = StandardScaler()
+    scaled_matrix = scaler.fit_transform(feature_df)
+
+    return scaled_matrix, feature_names, feature_df

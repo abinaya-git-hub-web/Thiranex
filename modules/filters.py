@@ -1,200 +1,169 @@
 """
 Module: filters.py
-Description: Advanced filtering controls, date range presets, multi-select dropdowns, 
-             range sliders, search box, filter reset, and active filter counter badge.
+Description: Sidebar controls and dynamic interactive filtering engine for customer dataset.
 """
 
-import datetime
 import pandas as pd
+import numpy as np
 import streamlit as st
-from typing import Dict, Tuple, Optional, List, Any
+from typing import Tuple, Dict, Any
 
 
-def render_sidebar_filters(df: pd.DataFrame, mappings: Dict[str, Optional[str]]) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+def render_sidebar_filters(df: pd.DataFrame, mappings: Dict[str, str]) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
-    Renders sidebar filter controls and applies selected criteria to filter the dataset.
-
-    Args:
-        df (pd.DataFrame): Input preprocessed DataFrame.
-        mappings (Dict[str, Optional[str]]): Column role mappings.
+    Renders sidebar interactive filters and applies selection masks to the DataFrame.
 
     Returns:
-        Tuple[pd.DataFrame, Dict[str, Any]]: Filtered DataFrame and metadata dict (active filter count, active filters summary).
+        Tuple[pd.DataFrame, Dict[str, Any]]: Filtered DataFrame and metadata dict.
     """
-    st.sidebar.markdown("### 🎛️ Filter Control Panel")
+    st.sidebar.markdown("## ⚙️ Controls & Filters")
 
-    if df.empty:
-        return df, {"count": 0, "summary": []}
+    # 1. Segmentation Method Selection
+    seg_method = st.sidebar.selectbox(
+        "🧠 Segmentation Method",
+        ["K-Means Clustering (ML)", "RFM Analysis (Traditional)", "DBSCAN Clustering (Outliers)", "Hierarchical Clustering"],
+        key="sb_seg_method",
+        help="Select the ML or statistical algorithm to group customers."
+    )
 
-    date_col = mappings.get("date")
-    cat_col = mappings.get("category")
-    region_col = mappings.get("region")
-    rep_col = mappings.get("salesperson")
-    pay_col = mappings.get("payment_method")
-    prod_col = mappings.get("product")
-    price_col = mappings.get("price")
-    qty_col = mappings.get("quantity")
-
-    # Reset Filters Button
-    if st.sidebar.button("🔄 Reset All Filters", use_container_width=True):
-        st.session_state.clear()
-        st.rerun()
-
-    active_filters_count = 0
-    active_filters_summary = []
-
-    filtered_df = df.copy()
-
-    # 1. Date Range Presets & Picker
-    if date_col and date_col in filtered_df.columns:
-        st.sidebar.markdown("#### 📅 Date Filter")
-        filtered_df[date_col] = pd.to_datetime(filtered_df[date_col])
-        min_date = filtered_df[date_col].min().date()
-        max_date = filtered_df[date_col].max().date()
-
-        preset = st.sidebar.selectbox(
-            "Date Range Preset",
-            ["All Time", "Last 7 Days", "This Month", "Last Quarter", "Year-to-Date", "Custom"],
-            key="sb_date_preset"
+    n_clusters = 3
+    if seg_method in ["K-Means Clustering (ML)", "Hierarchical Clustering"]:
+        n_clusters = st.sidebar.slider(
+            "🔢 Number of Clusters (K)",
+            min_value=3,
+            max_value=6,
+            value=3,
+            step=1,
+            key="sb_n_clusters"
         )
 
-        today = max_date  # Reference anchor date
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🔍 Customer Search & Demographic Filters")
 
-        if preset == "Last 7 Days":
-            start_d = max(min_date, today - datetime.timedelta(days=7))
-            end_d = today
-            active_filters_count += 1
-            active_filters_summary.append("Date: Last 7 Days")
-        elif preset == "This Month":
-            start_d = datetime.date(today.year, today.month, 1)
-            end_d = today
-            active_filters_count += 1
-            active_filters_summary.append("Date: This Month")
-        elif preset == "Last Quarter":
-            start_d = max(min_date, today - datetime.timedelta(days=90))
-            end_d = today
-            active_filters_count += 1
-            active_filters_summary.append("Date: Last Quarter")
-        elif preset == "Year-to-Date":
-            start_d = datetime.date(today.year, 1, 1)
-            end_d = today
-            active_filters_count += 1
-            active_filters_summary.append("Date: YTD")
-        elif preset == "Custom":
-            selected_dates = st.sidebar.date_input(
-                "Custom Date Range",
-                value=(min_date, max_date),
-                min_value=min_date,
-                max_value=max_date,
-                key="sb_date_custom"
-            )
-            if isinstance(selected_dates, (tuple, list)) and len(selected_dates) == 2:
-                start_d, end_d = selected_dates
-                if (start_d, end_d) != (min_date, max_date):
-                    active_filters_count += 1
-                    active_filters_summary.append(f"Date: {start_d} to {end_d}")
-            else:
-                start_d, end_d = min_date, max_date
-        else:
-            start_d, end_d = min_date, max_date
+    # 2. Customer Search
+    search_query = st.sidebar.text_input(
+        "🔎 Search Customer ID",
+        value="",
+        placeholder="e.g. CUST-0042",
+        key="sb_cust_search"
+    )
 
-        filtered_df = filtered_df[
-            (filtered_df[date_col].dt.date >= start_d) & 
-            (filtered_df[date_col].dt.date <= end_d)
-        ]
+    # 3. Demographic Filters
+    # Age Slider
+    age_col = mappings.get("age") if mappings.get("age") in df.columns else ("Age" if "Age" in df.columns else None)
+    selected_age_range = (18, 70)
+    if age_col:
+        min_a = int(df[age_col].min()) if not df[age_col].isnull().all() else 18
+        max_a = int(df[age_col].max()) if not df[age_col].isnull().all() else 70
+        selected_age_range = st.sidebar.slider(
+            "👤 Age Range",
+            min_value=min_a,
+            max_value=max_a,
+            value=(min_a, max_a),
+            key="sb_age_range"
+        )
+
+    # Gender Multi-Select
+    gender_col = mappings.get("gender") if mappings.get("gender") in df.columns else ("Gender" if "Gender" in df.columns else None)
+    selected_genders = []
+    if gender_col:
+        all_genders = df[gender_col].dropna().unique().tolist()
+        selected_genders = st.sidebar.multiselect(
+            "🚻 Gender",
+            options=all_genders,
+            default=all_genders,
+            key="sb_gender_select"
+        )
+
+    # Location Multi-Select
+    loc_col = mappings.get("location") if mappings.get("location") in df.columns else ("Location" if "Location" in df.columns else None)
+    selected_locations = []
+    if loc_col:
+        all_locations = df[loc_col].dropna().unique().tolist()
+        selected_locations = st.sidebar.multiselect(
+            "🗺️ Location / Region",
+            options=all_locations,
+            default=all_locations,
+            key="sb_location_select"
+        )
+
+    # Income Range Slider
+    inc_col = mappings.get("income") if mappings.get("income") in df.columns else ("Income" if "Income" in df.columns else None)
+    selected_inc_range = (20000, 150000)
+    if inc_col:
+        min_i = int(df[inc_col].min()) if not df[inc_col].isnull().all() else 20000
+        max_i = int(df[inc_col].max()) if not df[inc_col].isnull().all() else 150000
+        selected_inc_range = st.sidebar.slider(
+            "💵 Annual Income ($)",
+            min_value=min_i,
+            max_value=max_i,
+            value=(min_i, max_i),
+            key="sb_income_range"
+        )
 
     st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🛒 Behavioral Filters")
 
-    # 2. Multi-Select Dropdowns
-    # Category
-    if cat_col and cat_col in filtered_df.columns:
-        cat_options = sorted(list(filtered_df[cat_col].dropna().unique()))
-        selected_cats = st.sidebar.multiselect("Category", cat_options, key="sb_cats")
-        if selected_cats:
-            filtered_df = filtered_df[filtered_df[cat_col].isin(selected_cats)]
-            active_filters_count += 1
-            active_filters_summary.append(f"Category: {len(selected_cats)} selected")
+    # Spend Slider
+    spend_col = mappings.get("spend") if mappings.get("spend") in df.columns else ("Total Spend ($)" if "Total Spend ($)" in df.columns else None)
+    selected_spend_range = (0.0, 10000.0)
+    if spend_col:
+        min_s = float(df[spend_col].min()) if not df[spend_col].isnull().all() else 0.0
+        max_s = float(df[spend_col].max()) if not df[spend_col].isnull().all() else 10000.0
+        selected_spend_range = st.sidebar.slider(
+            "💰 Total Spend ($)",
+            min_value=min_s,
+            max_value=max_s,
+            value=(min_s, max_s),
+            key="sb_spend_range"
+        )
 
-    # Region
-    if region_col and region_col in filtered_df.columns:
-        region_options = sorted(list(filtered_df[region_col].dropna().unique()))
-        selected_regions = st.sidebar.multiselect("Region", region_options, key="sb_regions")
-        if selected_regions:
-            filtered_df = filtered_df[filtered_df[region_col].isin(selected_regions)]
-            active_filters_count += 1
-            active_filters_summary.append(f"Region: {len(selected_regions)} selected")
+    # Frequency Slider
+    freq_col = mappings.get("frequency") if mappings.get("frequency") in df.columns else ("Purchase Frequency" if "Purchase Frequency" in df.columns else None)
+    selected_freq_range = (1, 50)
+    if freq_col:
+        min_f = int(df[freq_col].min()) if not df[freq_col].isnull().all() else 1
+        max_f = int(df[freq_col].max()) if not df[freq_col].isnull().all() else 50
+        selected_freq_range = st.sidebar.slider(
+            "📦 Purchase Frequency",
+            min_value=min_f,
+            max_value=max_f,
+            value=(min_f, max_f),
+            key="sb_freq_range"
+        )
 
-    # Salesperson
-    if rep_col and rep_col in filtered_df.columns:
-        rep_options = sorted(list(filtered_df[rep_col].dropna().unique()))
-        selected_reps = st.sidebar.multiselect("Salesperson", rep_options, key="sb_reps")
-        if selected_reps:
-            filtered_df = filtered_df[filtered_df[rep_col].isin(selected_reps)]
-            active_filters_count += 1
-            active_filters_summary.append(f"Salesperson: {len(selected_reps)} selected")
+    # Filter Logic Application
+    filtered_df = df.copy()
 
-    # Payment Method
-    if pay_col and pay_col in filtered_df.columns:
-        pay_options = sorted(list(filtered_df[pay_col].dropna().unique()))
-        selected_pays = st.sidebar.multiselect("Payment Method", pay_options, key="sb_pays")
-        if selected_pays:
-            filtered_df = filtered_df[filtered_df[pay_col].isin(selected_pays)]
-            active_filters_count += 1
-            active_filters_summary.append(f"Payment Method: {len(selected_pays)} selected")
+    if search_query:
+        id_col = mappings.get("customer_id") if mappings.get("customer_id") in filtered_df.columns else "Customer ID"
+        if id_col in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df[id_col].astype(str).str.contains(search_query, case=False, na=False)]
 
-    st.sidebar.markdown("---")
+    if age_col and selected_age_range:
+        filtered_df = filtered_df[(filtered_df[age_col] >= selected_age_range[0]) & (filtered_df[age_col] <= selected_age_range[1])]
 
-    # 3. Dynamic Range Sliders
-    if price_col and price_col in filtered_df.columns:
-        min_p = float(df[price_col].min())
-        max_p = float(df[price_col].max())
-        if min_p < max_p:
-            price_range = st.sidebar.slider(
-                "Unit Price Range ($)",
-                min_value=min_p,
-                max_value=max_p,
-                value=(min_p, max_p),
-                key="sb_price_slider"
-            )
-            if price_range != (min_p, max_p):
-                filtered_df = filtered_df[
-                    (filtered_df[price_col] >= price_range[0]) & 
-                    (filtered_df[price_col] <= price_range[1])
-                ]
-                active_filters_count += 1
-                active_filters_summary.append(f"Price: ${price_range[0]:.0f}-${price_range[1]:.0f}")
+    if gender_col and selected_genders:
+        filtered_df = filtered_df[filtered_df[gender_col].isin(selected_genders)]
 
-    if qty_col and qty_col in filtered_df.columns:
-        min_q = int(df[qty_col].min())
-        max_q = int(df[qty_col].max())
-        if min_q < max_q:
-            qty_range = st.sidebar.slider(
-                "Order Quantity Range",
-                min_value=min_q,
-                max_value=max_q,
-                value=(min_q, max_q),
-                key="sb_qty_slider"
-            )
-            if qty_range != (min_q, max_q):
-                filtered_df = filtered_df[
-                    (filtered_df[qty_col] >= qty_range[0]) & 
-                    (filtered_df[qty_col] <= qty_range[1])
-                ]
-                active_filters_count += 1
-                active_filters_summary.append(f"Qty: {qty_range[0]}-{qty_range[1]}")
+    if loc_col and selected_locations:
+        filtered_df = filtered_df[filtered_df[loc_col].isin(selected_locations)]
 
-    st.sidebar.markdown("---")
+    if inc_col and selected_inc_range:
+        filtered_df = filtered_df[(filtered_df[inc_col] >= selected_inc_range[0]) & (filtered_df[inc_col] <= selected_inc_range[1])]
 
-    # 4. Product Text Search Box
-    search_query = st.sidebar.text_input("🔍 Search Product", key="sb_prod_search")
-    if search_query and prod_col and prod_col in filtered_df.columns:
-        filtered_df = filtered_df[filtered_df[prod_col].astype(str).str.contains(search_query, case=False, na=False)]
-        active_filters_count += 1
-        active_filters_summary.append(f"Search: '{search_query}'")
+    if spend_col and selected_spend_range:
+        filtered_df = filtered_df[(filtered_df[spend_col] >= selected_spend_range[0]) & (filtered_df[spend_col] <= selected_spend_range[1])]
 
-    meta = {
-        "count": active_filters_count,
-        "summary": active_filters_summary
+    if freq_col and selected_freq_range:
+        filtered_df = filtered_df[(filtered_df[freq_col] >= selected_freq_range[0]) & (filtered_df[freq_col] <= selected_freq_range[1])]
+
+    filter_meta = {
+        "segmentation_method": seg_method,
+        "n_clusters": n_clusters,
+        "search_query": search_query,
+        "total_records": len(df),
+        "filtered_records": len(filtered_df)
     }
 
-    return filtered_df, meta
+    return filtered_df, filter_meta

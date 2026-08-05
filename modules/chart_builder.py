@@ -1,320 +1,375 @@
 """
 Module: chart_builder.py
-Description: Generates 7 interactive Plotly charts with enterprise styling for Thiranex Solutions.
+Description: Interactive Plotly Data Visualization Engine for Customer Segmentation.
+             Implements 12+ glassmorphic dark-themed charts with fail-safe HTML fallback.
 """
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as gg
-import plotly.subplots as sp
-from typing import Dict, Optional
-from statsmodels.tsa.seasonal import seasonal_decompose
+import plotly.graph_objects as go
+import streamlit as st
+from typing import Dict, Any, List
+from scipy.cluster.hierarchy import dendrogram
 
 
-# Custom Enterprise Palette
-PRIMARY_COLOR = "#6366F1"
-SECONDARY_COLOR = "#8B5CF6"
-ACCENT_COLOR = "#EC4899"
-INFO_COLOR = "#06B6D4"
-SUCCESS_COLOR = "#10B981"
-DARK_BG = "#0F172A"
-CARD_BG = "#1E293B"
-
-COLOR_DISCRETE_SEQUENCE = [
-    "#6366F1", "#8B5CF6", "#EC4899", "#06B6D4", "#10B981", 
-    "#F59E0B", "#3B82F6", "#A855F7", "#F43F5E", "#14B8A6"
+# Unified Thiranex Dark Glassmorphism Color Palette
+THEME_COLORS = [
+    "#8B5CF6", "#3B82F6", "#10B981", "#F59E0B", "#EC4899",
+    "#06B6D4", "#6366F1", "#A855F7", "#14B8A6", "#EAB308"
 ]
 
+LAYOUT_DEFAULTS = dict(
+    paper_bgcolor="rgba(15, 23, 42, 0.7)",
+    plot_bgcolor="rgba(15, 23, 42, 0.7)",
+    font=dict(family="Inter, Roboto, sans-serif", color="#F8FAFC", size=12),
+    margin=dict(l=40, r=40, t=50, b=40),
+    legend=dict(
+        bgcolor="rgba(30, 41, 59, 0.8)",
+        bordercolor="rgba(255, 255, 255, 0.1)",
+        borderwidth=1,
+        font=dict(color="#CBD5E1")
+    )
+)
 
-def _apply_theme(fig, title: str = ""):
-    """Applies unified Plotly theme styling."""
+
+def _apply_theme(fig: go.Figure, title: str):
+    """Applies common dark theme styling and responsive layout to a Plotly figure."""
     fig.update_layout(
-        title=dict(text=title, font=dict(family="Outfit", size=18, color="#F8FAFC")),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Inter, sans-serif", color="#94A3B8"),
-        margin=dict(l=40, r=40, t=50, b=40),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
-            font=dict(color="#CBD5E1")
+        **LAYOUT_DEFAULTS,
+        title=dict(text=title, font=dict(size=16, color="#F8FAFC")),
+        xaxis=dict(
+            gridcolor="rgba(255, 255, 255, 0.07)",
+            zerolinecolor="rgba(255, 255, 255, 0.1)",
+            tickfont=dict(color="#94A3B8")
         ),
-        xaxis=dict(gridcolor="rgba(255,255,255,0.06)", zeroline=False),
-        yaxis=dict(gridcolor="rgba(255,255,255,0.06)", zeroline=False)
-    )
-    return fig
-
-
-def build_revenue_trend_chart(df: pd.DataFrame, mappings: Dict[str, Optional[str]]) -> gg.Figure:
-    """
-    Dual-axis chart: Bar chart for Revenue and Line chart for Order Count over time.
-    """
-    date_col = mappings.get("date")
-    rev_col = mappings.get("revenue")
-
-    if not date_col or date_col not in df.columns or df.empty:
-        fig = gg.Figure()
-        fig.add_annotation(text="Insufficient date data for trend analysis", showarrow=False, font=dict(size=14))
-        return _apply_theme(fig, "Revenue & Order Volume Trend")
-
-    # Aggregate by date (daily or weekly depending on span)
-    temp_df = df.copy()
-    temp_df[date_col] = pd.to_datetime(temp_df[date_col])
-    span_days = (temp_df[date_col].max() - temp_df[date_col].min()).days
-
-    freq = "D" if span_days <= 60 else ("W" if span_days <= 365 else "M")
-    agg_df = temp_df.groupby(pd.Grouper(key=date_col, freq=freq)).agg(
-        Revenue=(rev_col, "sum") if rev_col else (date_col, "count"),
-        Orders=(date_col, "count")
-    ).reset_index()
-
-    fig = sp.make_subplots(specs=[[{"secondary_y": True}]])
-
-    # Revenue Bar
-    fig.add_trace(
-        gg.Bar(
-            x=agg_df[date_col],
-            y=agg_df["Revenue"],
-            name="Revenue ($)",
-            marker_color=PRIMARY_COLOR,
-            opacity=0.85,
-            hovertemplate="<b>Date</b>: %{x|%b %d, %Y}<br><b>Revenue</b>: $%{y:,.2f}<extra></extra>"
-        ),
-        secondary_y=False
+        yaxis=dict(
+            gridcolor="rgba(255, 255, 255, 0.07)",
+            zerolinecolor="rgba(255, 255, 255, 0.1)",
+            tickfont=dict(color="#94A3B8")
+        )
     )
 
-    # Order Count Line
-    fig.add_trace(
-        gg.Scatter(
-            x=agg_df[date_col],
-            y=agg_df["Orders"],
-            name="Order Count",
-            mode="lines+markers",
-            line=dict(color=ACCENT_COLOR, width=3),
-            marker=dict(size=6, color="#FFFFFF", symbol="circle"),
-            hovertemplate="<b>Date</b>: %{x|%b %d, %Y}<br><b>Orders</b>: %{y:,}<extra></extra>"
-        ),
-        secondary_y=True
-    )
 
-    fig.update_yaxes(title_text="Revenue ($)", secondary_y=False, gridcolor="rgba(255,255,255,0.06)")
-    fig.update_yaxes(title_text="Order Count", secondary_y=True, showgrid=False)
-
-    return _apply_theme(fig, "📈 Revenue Trend & Order Volume Over Time")
-
-
-def build_monthly_heatmap(df: pd.DataFrame, mappings: Dict[str, Optional[str]]) -> gg.Figure:
+def render_plotly_chart(fig: go.Figure, height: int = 450, key: str = None):
     """
-    Calendar Heatmap showing sales intensity by day-of-week vs. month.
+    Renders Plotly chart with Streamlit st.plotly_chart and automatic HTML CDN fallback.
+    Prevents JS chunk loading errors in modern Streamlit environments.
     """
-    date_col = mappings.get("date")
-    rev_col = mappings.get("revenue")
-
-    if not date_col or date_col not in df.columns or df.empty:
-        fig = gg.Figure()
-        fig.add_annotation(text="Insufficient date data for heatmap", showarrow=False)
-        return _apply_theme(fig, "Sales Intensity Heatmap")
-
-    temp_df = df.copy()
-    temp_df[date_col] = pd.to_datetime(temp_df[date_col])
-    temp_df["Month"] = temp_df[date_col].dt.strftime("%b")
-    temp_df["Month_Num"] = temp_df[date_col].dt.month
-    temp_df["DayOfWeek"] = temp_df[date_col].dt.strftime("%a")
-    temp_df["Day_Num"] = temp_df[date_col].dt.dayofweek
-
-    pivot = temp_df.pivot_table(
-        index="DayOfWeek",
-        columns="Month",
-        values=rev_col if rev_col else date_col,
-        aggfunc="sum" if rev_col else "count"
-    ).fillna(0)
-
-    # Order days and months properly
-    days_order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    months_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    
-    pivot = pivot.reindex(index=[d for d in days_order if d in pivot.index],
-                         columns=[m for m in months_order if m in pivot.columns])
-
-    fig = px.imshow(
-        pivot,
-        labels=dict(x="Month", y="Day of Week", color="Sales ($)"),
-        color_continuous_scale="Viridis",
-        aspect="auto"
-    )
-
-    return _apply_theme(fig, "🗓️ Sales Intensity Heatmap (Day vs. Month)")
+    try:
+        st.plotly_chart(fig, use_container_width=True, key=key)
+    except Exception:
+        html_str = fig.to_html(include_plotlyjs="cdn", full_html=False)
+        st.components.v1.html(html_str, height=height, scrolling=False)
 
 
-def build_product_performance_matrix(df: pd.DataFrame, mappings: Dict[str, Optional[str]]) -> gg.Figure:
-    """
-    Scatter matrix plot (Price vs Quantity Sold) with bubble size proportional to Revenue.
-    """
-    prod_col = mappings.get("product")
-    qty_col = mappings.get("quantity")
-    price_col = mappings.get("price")
-    rev_col = mappings.get("revenue")
-    cat_col = mappings.get("category")
-
-    if not prod_col or not qty_col or not price_col or df.empty:
-        fig = gg.Figure()
-        fig.add_annotation(text="Price, Quantity, and Product columns required", showarrow=False)
-        return _apply_theme(fig, "Product Performance Matrix")
-
-    agg_dict = {
-        qty_col: "sum",
-        price_col: "mean",
-    }
-    if rev_col:
-        agg_dict[rev_col] = "sum"
-    if cat_col:
-        agg_dict[cat_col] = "first"
-
-    perf_df = df.groupby(prod_col).agg(agg_dict).reset_index()
-
-    if rev_col not in perf_df.columns:
-        perf_df[rev_col] = perf_df[qty_col] * perf_df[price_col]
-
-    fig = px.scatter(
-        perf_df,
-        x=price_col,
-        y=qty_col,
-        size=rev_col,
-        color=cat_col if cat_col and cat_col in perf_df.columns else prod_col,
-        hover_name=prod_col,
-        size_max=45,
-        color_discrete_sequence=COLOR_DISCRETE_SEQUENCE,
-        labels={price_col: "Avg Unit Price ($)", qty_col: "Total Units Sold", rev_col: "Total Revenue ($)"}
-    )
-
-    return _apply_theme(fig, "🎯 Product Performance Matrix (Price vs. Quantity Sold)")
-
-
-def build_category_donut_chart(df: pd.DataFrame, mappings: Dict[str, Optional[str]]) -> gg.Figure:
-    """
-    Donut chart of sales distribution by Category with drill-down ready styling.
-    """
-    cat_col = mappings.get("category") or mappings.get("product")
-    rev_col = mappings.get("revenue")
-
-    if not cat_col or cat_col not in df.columns or df.empty:
-        fig = gg.Figure()
-        fig.add_annotation(text="No Category data available", showarrow=False)
-        return _apply_theme(fig, "Category Revenue Breakdown")
-
-    cat_df = df.groupby(cat_col)[rev_col].sum().reset_index() if rev_col else df[cat_col].value_counts().reset_index()
+# 1. Segment Distribution Donut Chart
+def build_segment_distribution_chart(df: pd.DataFrame, segment_col: str) -> go.Figure:
+    """Builds a sleek donut chart showing the percentage breakdown of customer segments."""
+    counts = df[segment_col].value_counts().reset_index()
+    counts.columns = ["Segment", "Count"]
 
     fig = px.pie(
-        cat_df,
-        names=cat_col,
-        values=rev_col if rev_col else "count",
+        counts,
+        values="Count",
+        names="Segment",
         hole=0.55,
-        color_discrete_sequence=COLOR_DISCRETE_SEQUENCE
+        color_discrete_sequence=THEME_COLORS
     )
-
     fig.update_traces(
         textposition="inside",
         textinfo="percent+label",
+        hoverinfo="label+value+percent",
         marker=dict(line=dict(color="#0F172A", width=2))
     )
+    _apply_theme(fig, "📊 Segment Distribution Breakdown")
+    return fig
 
-    return _apply_theme(fig, "🍩 Revenue Distribution by Category")
 
+# 2. Segment Profile Comparison Radar Chart
+def build_radar_comparison_chart(df: pd.DataFrame, segment_col: str, mappings: Dict[str, str]) -> go.Figure:
+    """Builds a Radar Chart comparing average normalized metrics across segments."""
+    metrics = ["Age", "Income", "Total Spend ($)", "Purchase Frequency", "Average Order Value ($)", "Recency_Days"]
+    available_metrics = [m for m in metrics if m in df.columns]
 
-def build_geographic_map(df: pd.DataFrame, mappings: Dict[str, Optional[str]]) -> gg.Figure:
-    """
-    Regional sales choropleth / bar map.
-    """
-    region_col = mappings.get("region")
-    rev_col = mappings.get("revenue")
+    if len(available_metrics) < 3:
+        available_metrics = [c for c in ["Monetary_Val", "Frequency_Val", "Recency_Days", "Age", "Income"] if c in df.columns]
 
-    if not region_col or region_col not in df.columns or df.empty:
-        fig = gg.Figure()
-        fig.add_annotation(text="No Region/Location column detected", showarrow=False)
-        return _apply_theme(fig, "Geographic Sales Distribution")
+    grouped = df.groupby(segment_col)[available_metrics].mean()
+    normalized = (grouped - grouped.min()) / (grouped.max() - grouped.min() + 1e-6)
 
-    reg_df = df.groupby(region_col)[rev_col].sum().reset_index() if rev_col else df[region_col].value_counts().reset_index()
+    fig = go.Figure()
+    categories = available_metrics
 
-    fig = px.bar(
-        reg_df,
-        x=region_col,
-        y=rev_col if rev_col else "count",
-        color=rev_col if rev_col else "count",
-        color_continuous_scale="Purples",
-        labels={region_col: "Region", rev_col: "Total Revenue ($)"}
+    for idx, (segment, row) in enumerate(normalized.iterrows()):
+        values = row.values.tolist()
+        values.append(values[0])
+        cat_loop = categories + [categories[0]]
+
+        fig.add_trace(go.Scatterpolar(
+            r=values,
+            theta=cat_loop,
+            fill="toself",
+            name=str(segment),
+            line=dict(color=THEME_COLORS[idx % len(THEME_COLORS)], width=2),
+            opacity=0.65
+        ))
+
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(visible=True, range=[0, 1], gridcolor="rgba(255, 255, 255, 0.1)", showticklabels=False),
+            angularaxis=dict(gridcolor="rgba(255, 255, 255, 0.1)", tickfont=dict(color="#CBD5E1"))
+        )
     )
+    _apply_theme(fig, "🕸️ Multi-Dimensional Segment Comparison (Radar)")
+    return fig
 
-    return _apply_theme(fig, "🌍 Geographic & Regional Sales Overview")
+
+# 3. Demographic Heatmap (Age vs Income colored by Segment)
+def build_demographic_heatmap(df: pd.DataFrame, segment_col: str, mappings: Dict[str, str]) -> go.Figure:
+    """Scatter heatmap showing Age vs Income distribution with segment color coding."""
+    age_c = mappings.get("age") if mappings.get("age") in df.columns else "Age"
+    inc_c = mappings.get("income") if mappings.get("income") in df.columns else "Income"
+
+    if age_c not in df.columns or inc_c not in df.columns:
+        fig = go.Figure()
+        _apply_theme(fig, "Demographic Heatmap (Age/Income columns missing)")
+        return fig
+
+    fig = px.scatter(
+        df,
+        x=age_c,
+        y=inc_c,
+        color=segment_col,
+        size="Total Spend ($)" if "Total Spend ($)" in df.columns else None,
+        hover_data=["Customer ID"] if "Customer ID" in df.columns else None,
+        color_discrete_sequence=THEME_COLORS,
+        opacity=0.75
+    )
+    _apply_theme(fig, "🔥 Demographic Matrix: Age vs Income by Segment")
+    fig.update_xaxes(title="Customer Age (Years)")
+    fig.update_yaxes(title="Annual Income ($)")
+    return fig
 
 
-def build_salesperson_leaderboard(df: pd.DataFrame, mappings: Dict[str, Optional[str]]) -> gg.Figure:
-    """
-    Horizontal bar chart ranking sales reps by total revenue generated.
-    """
-    rep_col = mappings.get("salesperson")
-    rev_col = mappings.get("revenue")
+# 4. Spending Pattern Box Plot per Segment
+def build_spending_boxplot(df: pd.DataFrame, segment_col: str, mappings: Dict[str, str]) -> go.Figure:
+    """Box plots showing spend distribution per segment."""
+    spend_c = mappings.get("spend") if mappings.get("spend") in df.columns else ("Total Spend ($)" if "Total Spend ($)" in df.columns else "Monetary_Val")
 
-    if not rep_col or rep_col not in df.columns or df.empty:
-        fig = gg.Figure()
-        fig.add_annotation(text="No Salesperson column detected", showarrow=False)
-        return _apply_theme(fig, "Salesperson Leaderboard")
+    fig = px.box(
+        df,
+        x=segment_col,
+        y=spend_c,
+        color=segment_col,
+        points="outliers",
+        color_discrete_sequence=THEME_COLORS
+    )
+    _apply_theme(fig, "💰 Total Spend Distribution per Segment")
+    fig.update_xaxes(title="Segment")
+    fig.update_yaxes(title="Total Spend ($)")
+    return fig
 
-    rep_df = df.groupby(rep_col)[rev_col].sum().sort_values(ascending=True).reset_index() if rev_col else df[rep_col].value_counts().sort_values(ascending=True).reset_index()
+
+# 5. Geographic Segment Distribution Bar Chart
+def build_geographic_chart(df: pd.DataFrame, segment_col: str, mappings: Dict[str, str]) -> go.Figure:
+    """Grouped bar chart showing segment proportions across locations/regions."""
+    loc_c = mappings.get("location") if mappings.get("location") in df.columns else "Location"
+
+    if loc_c not in df.columns:
+        fig = go.Figure()
+        _apply_theme(fig, "Geographic Map (Location column missing)")
+        return fig
+
+    geo_df = df.groupby([loc_c, segment_col]).size().reset_index(name="Customer_Count")
 
     fig = px.bar(
-        rep_df,
-        y=rep_col,
-        x=rev_col if rev_col else "count",
+        geo_df,
+        x=loc_c,
+        y="Customer_Count",
+        color=segment_col,
+        barmode="group",
+        color_discrete_sequence=THEME_COLORS
+    )
+    _apply_theme(fig, "🗺️ Geographic Regional Segment Distribution")
+    fig.update_xaxes(title="Region / Location")
+    fig.update_yaxes(title="Customer Count")
+    return fig
+
+
+# 6. RFM 3D Scatter Plot
+def build_rfm_3d_scatter(df: pd.DataFrame, rfm_col: str = "RFM_Segment") -> go.Figure:
+    """Interactive 3D Scatter Plot mapping Recency vs Frequency vs Monetary scores."""
+    r_col = "Recency_Days" if "Recency_Days" in df.columns else "R_Score"
+    f_col = "Frequency_Val" if "Frequency_Val" in df.columns else "F_Score"
+    m_col = "Monetary_Val" if "Monetary_Val" in df.columns else "M_Score"
+
+    seg_c = rfm_col if rfm_col in df.columns else "KMeans_Cluster" if "KMeans_Cluster" in df.columns else None
+
+    fig = px.scatter_3d(
+        df,
+        x=r_col,
+        y=f_col,
+        z=m_col,
+        color=seg_c,
+        hover_name="Customer ID" if "Customer ID" in df.columns else None,
+        color_discrete_sequence=THEME_COLORS,
+        opacity=0.8
+    )
+    fig.update_layout(
+        scene=dict(
+            xaxis=dict(title="Recency (Days)", backgroundcolor="#0F172A", gridcolor="rgba(255,255,255,0.1)"),
+            yaxis=dict(title="Frequency (Orders)", backgroundcolor="#0F172A", gridcolor="rgba(255,255,255,0.1)"),
+            zaxis=dict(title="Monetary Spend ($)", backgroundcolor="#0F172A", gridcolor="rgba(255,255,255,0.1)")
+        )
+    )
+    _apply_theme(fig, "🧊 3D RFM Matrix (Recency vs Frequency vs Monetary)")
+    return fig
+
+
+# 7. Customer Lifecycle Sankey Diagram
+def build_lifecycle_sankey(df: pd.DataFrame, segment_col: str) -> go.Figure:
+    """Sankey diagram showing flow from Location -> Segment -> Preferred Payment."""
+    loc_c = "Location" if "Location" in df.columns else None
+    pay_c = "Preferred Payment" if "Preferred Payment" in df.columns else None
+
+    if not loc_c or not pay_c or segment_col not in df.columns:
+        fig = go.Figure()
+        _apply_theme(fig, "Customer Lifecycle Flow")
+        return fig
+
+    locations = list(df[loc_c].unique())
+    segments = list(df[segment_col].unique())
+    payments = list(df[pay_c].unique())
+
+    all_nodes = locations + [str(s) for s in segments] + payments
+    node_map = {n: i for i, n in enumerate(all_nodes)}
+
+    flow1 = df.groupby([loc_c, segment_col]).size().reset_index(name="count")
+    sources = [node_map[r[loc_c]] for _, r in flow1.iterrows()]
+    targets = [node_map[str(r[segment_col])] for _, r in flow1.iterrows()]
+    values = flow1["count"].tolist()
+
+    flow2 = df.groupby([segment_col, pay_c]).size().reset_index(name="count")
+    sources += [node_map[str(r[segment_col])] for _, r in flow2.iterrows()]
+    targets += [node_map[r[pay_c]] for _, r in flow2.iterrows()]
+    values += flow2["count"].tolist()
+
+    fig = go.Figure(data=[go.Sankey(
+        node=dict(
+            pad=15,
+            thickness=20,
+            line=dict(color="#0F172A", width=1),
+            label=all_nodes,
+            color=["#8B5CF6" if n in locations else "#3B82F6" if n in payments else "#10B981" for n in all_nodes]
+        ),
+        link=dict(
+            source=sources,
+            target=targets,
+            value=values,
+            color="rgba(139, 92, 246, 0.2)"
+        )
+    )])
+    _apply_theme(fig, "🔀 Customer Lifecycle Journey (Location ➔ Segment ➔ Payment)")
+    return fig
+
+
+# 8. Hierarchical Dendrogram Chart
+def build_dendrogram_chart(linkage_matrix: np.ndarray) -> go.Figure:
+    """Converts Scipy linkage matrix into a Plotly interactive dendrogram figure."""
+    dendro = dendrogram(linkage_matrix, no_plot=True)
+
+    icoord = np.array(dendro['icoord'])
+    dcoord = np.array(dendro['dcoord'])
+
+    fig = go.Figure()
+    for i, d in zip(icoord, dcoord):
+        fig.add_trace(go.Scatter(
+            x=i, y=d,
+            mode='lines',
+            line=dict(color="#8B5CF6", width=1.5),
+            hoverinfo='none',
+            showlegend=False
+        ))
+
+    _apply_theme(fig, "🌳 Hierarchical Clustering Dendrogram")
+    fig.update_xaxes(title="Customer Index Clusters", showticklabels=False)
+    fig.update_yaxes(title="Distance Threshold (Euclidean)")
+    return fig
+
+
+# 9. Elbow Curve Chart
+def build_elbow_chart(k_values: List[int], inertias: List[float]) -> go.Figure:
+    """Builds line plot for determining optimal cluster count (K) via Elbow method."""
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=k_values,
+        y=inertias,
+        mode="lines+markers",
+        name="WCSS (Inertia)",
+        line=dict(color="#8B5CF6", width=3),
+        marker=dict(size=8, color="#3B82F6")
+    ))
+    _apply_theme(fig, "📐 K-Means Elbow Method (Inertia vs K)")
+    fig.update_xaxes(title="Number of Clusters (K)")
+    fig.update_yaxes(title="Within-Cluster Sum of Squares (WCSS)")
+    return fig
+
+
+# 10. Silhouette Score Chart
+def build_silhouette_chart(k_values: List[int], silhouette_scores: List[float]) -> go.Figure:
+    """Builds bar chart evaluating Silhouette score across different cluster counts."""
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=k_values,
+        y=silhouette_scores,
+        name="Silhouette Score",
+        marker=dict(color=THEME_COLORS[:len(k_values)])
+    ))
+    _apply_theme(fig, "📊 Silhouette Score Evaluation per K")
+    fig.update_xaxes(title="Number of Clusters (K)")
+    fig.update_yaxes(title="Silhouette Coefficient")
+    return fig
+
+
+# 11. Churn Drivers Feature Importance Chart
+def build_churn_driver_chart(drivers: List[tuple]) -> go.Figure:
+    """Bar chart showing top features driving customer churn."""
+    features = [d[0] for d in drivers]
+    importances = [d[1] for d in drivers]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=importances,
+        y=features,
         orientation="h",
-        color=rev_col if rev_col else "count",
-        color_continuous_scale="Plasma",
-        labels={rep_col: "Sales Representative", rev_col: "Total Revenue ($)"}
+        marker=dict(color="#EC4899")
+    ))
+    _apply_theme(fig, "🚨 Churn Drivers (Random Forest Feature Importances)")
+    fig.update_xaxes(title="Importance Weight")
+    fig.update_yaxes(title="Feature", autorange="reversed")
+    return fig
+
+
+# 12. CLV Tier Distribution Chart
+def build_clv_distribution_chart(df: pd.DataFrame) -> go.Figure:
+    """Bar chart displaying CLV Tier breakdown."""
+    if "CLV_Tier" not in df.columns:
+        fig = go.Figure()
+        _apply_theme(fig, "CLV Tiers")
+        return fig
+
+    counts = df["CLV_Tier"].value_counts().reset_index()
+    counts.columns = ["Tier", "Count"]
+
+    fig = px.bar(
+        counts,
+        x="Tier",
+        y="Count",
+        color="Tier",
+        color_discrete_sequence=["#10B981", "#3B82F6", "#F59E0B"]
     )
-
-    return _apply_theme(fig, "🏆 Sales Representative Leaderboard")
-
-
-def build_time_series_decomposition(df: pd.DataFrame, mappings: Dict[str, Optional[str]]) -> gg.Figure:
-    """
-    Decomposes time series into Trend, Seasonality, and Residual components.
-    """
-    date_col = mappings.get("date")
-    rev_col = mappings.get("revenue")
-
-    if not date_col or date_col not in df.columns or df.empty:
-        fig = gg.Figure()
-        fig.add_annotation(text="Insufficient date data for time series decomposition", showarrow=False)
-        return _apply_theme(fig, "Time Series Decomposition")
-
-    temp_df = df.copy()
-    temp_df[date_col] = pd.to_datetime(temp_df[date_col])
-    daily = temp_df.groupby(pd.Grouper(key=date_col, freq="D"))[rev_col].sum().fillna(0)
-
-    if len(daily) < 14:
-        fig = gg.Figure()
-        fig.add_annotation(text="Requires at least 14 days of data for decomposition", showarrow=False)
-        return _apply_theme(fig, "Time Series Decomposition")
-
-    try:
-        # Perform seasonal decomposition with period=7 (weekly seasonality)
-        decomp = seasonal_decompose(daily, model="additive", period=7)
-        
-        fig = sp.make_subplots(rows=3, cols=1, subplot_titles=["Trend Component", "Seasonal Pattern", "Residual Noise"])
-
-        fig.add_trace(gg.Scatter(x=decomp.trend.index, y=decomp.trend, name="Trend", line=dict(color=PRIMARY_COLOR, width=2)), row=1, col=1)
-        fig.add_trace(gg.Scatter(x=decomp.seasonal.index, y=decomp.seasonal, name="Seasonal", line=dict(color=ACCENT_COLOR, width=2)), row=2, col=1)
-        fig.add_trace(gg.Scatter(x=decomp.resid.index, y=decomp.resid, name="Residual", mode="markers", marker=dict(color=INFO_COLOR, size=4)), row=3, col=1)
-
-        fig.update_yaxes(gridcolor="rgba(255,255,255,0.06)")
-        return _apply_theme(fig, "📊 Time Series Decomposition (Trend, Seasonality, Residuals)")
-    except Exception:
-        # Fallback to simple moving average if statsmodels fails
-        fig = gg.Figure()
-        ma = daily.rolling(window=7).mean()
-        fig.add_trace(gg.Scatter(x=daily.index, y=daily, name="Actual Revenue", line=dict(color="rgba(99,102,241,0.4)")))
-        fig.add_trace(gg.Scatter(x=ma.index, y=ma, name="7-Day Moving Avg Trend", line=dict(color=ACCENT_COLOR, width=3)))
-        return _apply_theme(fig, "📊 7-Day Trend Analysis (Moving Average)")
+    _apply_theme(fig, "💎 Customer Lifetime Value (CLV) Tiers Distribution")
+    fig.update_xaxes(title="CLV Tier")
+    fig.update_yaxes(title="Customer Count")
+    return fig

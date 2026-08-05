@@ -1,108 +1,82 @@
-# 📊 Thiranex Solutions — Enterprise Sales & Revenue Analysis Dashboard
+# Thiranex Solutions — Customer Segmentation & Persona Intelligence Application
 
-A state-of-the-art, production-ready enterprise analytics dashboard built with **Streamlit**, **Plotly**, **Pandas**, **Scikit-Learn**, **Statsmodels**, and **ReportLab**.
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.30%2B-FF4B4B.svg)](https://streamlit.io/)
+[![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-1.3%2B-F7931E.svg)](https://scikit-learn.org/)
+[![Plotly](https://img.shields.io/badge/Plotly-5.18%2B-3F4F75.svg)](https://plotly.com/)
 
-Designed for executive decision-makers, sales leaders, and financial analysts at **Thiranex Solutions**, this application delivers real-time sales performance tracking, AI-powered anomaly detection, predictive revenue forecasting, and PDF report exports.
-
----
-
-## 🌟 Key Features
-
-### 1. Data Import & Smart Auto-Detection
-- **Multi-Format Ingestion**: Supports CSV, Excel (`.xlsx`, `.xls`), and JSON files.
-- **Smart Column Detection**: Automatic semantic role recognition for Dates, Revenue, Quantities, Unit Prices, Products, Categories, Regions, Salespersons, Customers, and Payment Methods.
-- **Data Profiling**: Instant dataset diagnostics (missing values, data types, unique counts, memory footprint).
-- **Synthetic Data Engine**: Generates a 500-row realistic sales dataset when no file is uploaded.
-
-### 2. Advanced KPI Cards & Trend Indicators
-- **Real-Time Key Metrics**: Total Revenue, Order Volume, Average Order Value (AOV), Units Sold, Active Customers, and Top Selling Product.
-- **Period-over-Period Deltas**: Comparison trend badges (`▲ +X.X%` / `▼ -X.X%`) with color-coded status styling.
-
-### 3. Interactive Plotly Visualizations
-- **📈 Dual-Axis Revenue Trend**: Bar chart for Revenue and Line overlay for Order Count over time.
-- **🗓️ Monthly Sales Heatmap**: Day-of-Week vs. Month sales intensity matrix.
-- **🎯 Product Performance Matrix**: Price vs. Quantity scatter plot with Revenue bubble sizing.
-- **🍩 Category Revenue Donut Chart**: Donut breakdown of sales distribution.
-- **🌍 Geographic Regional Map**: Regional sales overview.
-- **🏆 Salesperson Leaderboard**: Horizontal bar ranking top sales representatives.
-- **📊 Time Series Decomposition**: Multi-panel chart isolating Trend, Seasonality, and Residual noise components.
-
-### 4. AI & Machine Learning Insights Suite
-- **🚨 Isolation Forest Anomaly Detection**: Unsupervised ML model identifying unusual transaction surges or volume drops.
-- **🔮 30-Day Predictive Forecasting**: Holt-Winters Exponential Smoothing (with polynomial trend fallback) projecting future daily sales with 95% confidence bands.
-- **💡 Smart Business Recommendations**: Automated insights flagging underperforming products, optimal promotional timing, and revenue concentration risks.
-- **✨ Natural Language Executive Narrative**: Auto-generated executive brief for executive leadership.
-
-### 5. Advanced Dynamic Filtering Panel
-- **Date Range Presets**: Last 7 Days, This Month, Last Quarter, Year-to-Date, and Custom Date Pickers.
-- **Multi-Select Dropdowns**: Category, Region, Salesperson, and Payment Method filters.
-- **Dynamic Range Sliders**: Price Range and Order Quantity sliders.
-- **Product Search Box**: Instant string matching search.
-- **Reset & Counter Badge**: One-click reset button and active filter counter badge.
-
-### 6. Multi-Format Export Studio
-- **PDF Executive Report**: Formatted PDF document built via ReportLab containing summary metrics, KPI tables, and product leaderboards.
-- **CSV Data Export**: One-click download of filtered dataset.
-
-### 7. Modern Glassmorphism UI/UX
-- Custom CSS design system featuring Thiranex Solutions branding, neon gradients, glassmorphism cards, responsive grids, onboarding tour guide, and FAQ section.
+An enterprise-grade Customer Segmentation Application built for **Thiranex Solutions**. The platform utilizes machine learning algorithms (K-Means, DBSCAN, Hierarchical Agglomerative Clustering) alongside traditional RFM Analysis, Random Forest Churn Prediction, Customer Lifetime Value (CLV) Forecasting, and Automated Persona Building.
 
 ---
 
-## 🛠️ Project Structure
+## 📁 Repository & Codebase Structure
 
 ```
-Thiranex/
-├── app.py                      # Main Streamlit application entry point
-├── requirements.txt            # Python dependencies
-├── README.md                   # Technical documentation
+Thiranex_Customer_Segmentation/
+├── app.py                      # Main entry point & Streamlit app
+├── requirements.txt            # Python package dependencies
+├── README.md                   # Application documentation
 ├── assets/
-│   ├── style.css              # Glassmorphism & dark theme stylesheet
-│   └── logo.svg               # Thiranex Solutions vector logo asset
+│   ├── style.css               # Dark theme glassmorphism CSS
+│   └── logo.svg                # Thiranex Solutions brand SVG logo
 └── modules/
-    ├── __init__.py
-    ├── data_loader.py          # CSV/Excel/JSON loading & synthetic data generator
-    ├── preprocessor.py        # Smart column auto-detection & data profiling
-    ├── kpi_calculator.py      # Core metrics & MoM trend delta calculations
-    ├── chart_builder.py       # 7 Plotly visualization builders
-    ├── ai_insights.py         # Isolation Forest anomaly detection & forecasting
-    ├── filters.py             # Sidebar & top header filter controls
-    ├── exporters.py           # ReportLab PDF report generation & CSV export
-    └── ui_components.py       # CSS injection, KPI HTML cards, header & onboarding tour
+    ├── __init__.py             # Modules package initializer
+    ├── data_loader.py          # File uploader & 1,000 synthetic customer generator
+    ├── preprocessor.py         # Smart column detection & feature normalization
+    ├── rfm_analyzer.py         # RFM scoring (1-5 scale) & segment classification
+    ├── kmeans_cluster.py       # K-Means clustering with Elbow Method & Silhouette Score
+    ├── dbscan_cluster.py       # DBSCAN density-based outlier detection
+    ├── hierarchical_cluster.py # Agglomerative clustering & Scipy linkage matrix
+    ├── persona_builder.py      # Customer persona cards & natural language narrative
+    ├── chart_builder.py        # 12+ Plotly interactive dark-themed charts
+    ├── ai_predictor.py         # Random Forest Churn Classifier, CLV & Next Best Offer
+    ├── filters.py              # Interactive sidebar filters & customer search
+    ├── exporters.py            # PDF executive report builder & CSV exporter
+    └── ui_components.py        # Glassmorphic cards, KPI renderers, header & footer
 ```
 
 ---
 
-## 🚀 Installation & Running Locally
+## ⚡ Key Features
 
-### 1. Prerequisites
-Ensure **Python 3.9+** is installed on your system.
+1. **Synthetic Data Generator**: 1,000 synthetic customer records with 3 natural segments (*High-Value Premium*, *Regular Bargain*, *Occasional Explorers*).
+2. **Multi-Format Upload Studio**: Parses CSV, Excel (`.xlsx`, `.xls`), and JSON files with smart downsampling.
+3. **Smart Column Auto-Detection**: Detects demographic and behavioral columns automatically.
+4. **4 Segmentation Methods**:
+   - **K-Means Clustering (ML)**
+   - **RFM Analysis (Traditional)**
+   - **DBSCAN Clustering (Outliers)**
+   - **Hierarchical Clustering (Agglomerative)**
+5. **Customer Persona Builder**: Auto-generates demographic, monetary, and behavioral profiles, marketing strategies, recommended offers, and churn risk badges.
+6. **Advanced AI Features**:
+   - **Random Forest Churn Prediction & Driver Importances**
+   - **Customer Lifetime Value (CLV) Regression & Tiers**
+   - **Next Best Offer Recommendation Engine**
+7. **10+ Plotly Visualizations**: Donut chart, Radar chart, Demographic heatmap, Spending box plots, 3D RFM scatter plot, Lifecycle Sankey flow, Scipy Dendrogram tree, Elbow curve, Silhouette evaluation, Churn drivers, and CLV tiers.
+8. **Export Studio**: Generates executive PDF reports via ReportLab and CSV exports.
 
-### 2. Install Dependencies
-Open your terminal in the project directory and run:
+---
+
+## 🚀 Getting Started
+
+### 1. Installation
+
+Install the required dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Launch Streamlit Application
-Run the main app file:
+### 2. Launching the App
+
+Run Streamlit:
+
 ```bash
 streamlit run app.py
 ```
 
-The application will open automatically in your web browser at `http://localhost:8501`.
-
 ---
 
-## 🧪 Verification & Code Validation
+## 🛡️ License & Credits
 
-To verify all modules and run pre-flight syntax checks:
-```bash
-python -m py_compile app.py modules/*.py
-```
-
----
-
-## 📜 License & Ownership
-
-© 2026 **Thiranex Solutions** — Built with ❤️ for Enterprise Analytics.
+© 2026 **Thiranex Solutions** — Enterprise Machine Learning Intelligence Studio. Built with ❤️.
