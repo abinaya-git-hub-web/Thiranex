@@ -1,140 +1,108 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* Custom Glassmorphism Dark Theme Styling for Thiranex Solutions */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+}
 
 .stApp {
-    font-family: 'Inter', sans-serif;
-    background-color: #0F172A !important;
-    color: #F8FAFC !important;
+    background: linear-gradient(135deg, #0B0F19 0%, #0F172A 50%, #1E1035 100%);
+    color: #F8FAFC;
 }
 
-/* Main Container Padding */
-.block-container {
-    padding-top: 1.5rem !important;
-    padding-bottom: 2rem !important;
-    max-width: 95% !important;
-}
-
-/* Sidebar Styling */
-section[data-testid="stSidebar"] {
-    background-color: #1E293B !important;
+[data-testid="stSidebar"] {
+    background: rgba(15, 23, 42, 0.75) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
     border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
-section[data-testid="stSidebar"] .stMarkdown h2, 
-section[data-testid="stSidebar"] .stMarkdown h3 {
-    color: #8B5CF6 !important;
-}
 
-/* Header Banner Styling */
-.tx-header-banner {
-    background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
-    border: 1px solid rgba(139, 92, 246, 0.3);
-    box-shadow: 0 10px 25px -5px rgba(139, 92, 246, 0.15);
-    border-radius: 16px;
-    padding: 1.5rem 2rem;
-    margin-bottom: 1.5rem;
+.glass-card {
+    background: rgba(30, 41, 59, 0.5);
     backdrop-filter: blur(12px);
-}
-.tx-header-title {
-    font-size: 1.8rem;
-    font-weight: 800;
-    background: linear-gradient(90deg, #A855F7, #3B82F6, #10B981);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin: 0;
-}
-.tx-header-subtitle {
-    font-size: 0.95rem;
-    color: #94A3B8;
-    margin-top: 0.25rem;
-}
-
-/* Metric / KPI Card Styling */
-.tx-kpi-card {
-    background: rgba(30, 41, 59, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 14px;
     padding: 1.2rem;
-    text-align: center;
-    backdrop-filter: blur(10px);
-    transition: transform 0.2s ease, border-color 0.2s ease;
-}
-.tx-kpi-card:hover {
-    transform: translateY(-3px);
-    border-color: rgba(139, 92, 246, 0.5);
-}
-.tx-kpi-title {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #94A3B8;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-.tx-kpi-value {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: #F8FAFC;
-    margin: 0.3rem 0;
-}
-
-/* Persona Card Glassmorphism */
-.tx-persona-card {
-    background: linear-gradient(145deg, rgba(30, 41, 59, 0.75), rgba(15, 23, 42, 0.85));
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 16px;
-    padding: 1.5rem;
-    margin-bottom: 1.2rem;
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-    backdrop-filter: blur(12px);
-}
-.tx-persona-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    padding-bottom: 0.8rem;
-    margin-bottom: 1rem;
-}
-.tx-persona-name {
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: #F8FAFC;
-    margin: 0;
-}
-.tx-badge {
-    font-size: 0.75rem;
-    font-weight: 700;
-    padding: 4px 10px;
-    border-radius: 20px;
-    text-transform: uppercase;
+    transition: transform 0.25s ease, border-color 0.25s ease;
 }
 
-/* Tabs Styling */
-.stTabs [data-baseweb="tab-list"] {
-    gap: 12px;
-    background-color: transparent;
+.glass-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(139, 92, 246, 0.4);
 }
-.stTabs [data-baseweb="tab"] {
-    height: 48px;
-    white-space: pre;
-    border-radius: 10px;
-    background-color: rgba(30, 41, 59, 0.5);
-    color: #94A3B8;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    padding: 0 20px;
+
+.metric-icon {
+    font-size: 1.8rem;
+    margin-bottom: 0.4rem;
+}
+
+.metric-label {
+    font-size: 0.82rem;
     font-weight: 600;
-}
-.stTabs [aria-selected="true"] {
-    background-color: #8B5CF6 !important;
-    color: #FFFFFF !important;
-    border-color: #8B5CF6 !important;
-    box-shadow: 0 4px 14px 0 rgba(139, 92, 246, 0.39);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #94A3B8;
 }
 
-/* Footer */
-.tx-footer {
-    text-align: center;
-    padding: 1.5rem;
-    margin-top: 3rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    color: #64748B;
-    font-size: 0.85rem;
+.metric-value {
+    font-size: 1.65rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #FFFFFF 0%, #E2E8F0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-top: 0.2rem;
 }
+
+.metric-delta {
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-top: 0.3rem;
+}
+
+.stTabs [data-baseweb="tab-list"] {
+    gap: 8px;
+    background: rgba(15, 23, 42, 0.6);
+    padding: 6px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stTabs [data-baseweb="tab"] {
+    height: 44px;
+    white-space: pre;
+    border-radius: 8px;
+    color: #94A3B8;
+    font-weight: 500;
+    border: none;
+    padding: 0 16px;
+    transition: all 0.2s ease;
+}
+
+.stTabs [aria-selected="true"] {
+    background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%) !important;
+    color: #FFFFFF !important;
+    font-weight: 700 !important;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+}
+
+.stButton>button {
+    background: linear-gradient(135deg, #8B5CF6 0%, #4F46E5 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 0.6rem 1.2rem;
+    font-weight: 600;
+    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.35);
+    transition: all 0.2s ease;
+}
+
+.stButton>button:hover {
+    transform: scale(1.02);
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.5);
+}
+
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}

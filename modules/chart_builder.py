@@ -1,375 +1,397 @@
 """
-Module: chart_builder.py
-Description: Interactive Plotly Data Visualization Engine for Customer Segmentation.
-             Implements 12+ glassmorphic dark-themed charts with fail-safe HTML fallback.
+=============================================================================
+Thiranex Solutions — 13+ Interactive Plotly Chart Suite
+Author: Google Deepmind Agentic AI Team
+=============================================================================
 """
 
-import numpy as np
 import pandas as pd
-import plotly.express as px
+import numpy as np
 import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
 import streamlit as st
-from typing import Dict, Any, List
-from scipy.cluster.hierarchy import dendrogram
+from typing import Dict, Any, List, Tuple
 
 
-# Unified Thiranex Dark Glassmorphism Color Palette
-THEME_COLORS = [
-    "#8B5CF6", "#3B82F6", "#10B981", "#F59E0B", "#EC4899",
-    "#06B6D4", "#6366F1", "#A855F7", "#14B8A6", "#EAB308"
-]
-
-LAYOUT_DEFAULTS = dict(
-    paper_bgcolor="rgba(15, 23, 42, 0.7)",
-    plot_bgcolor="rgba(15, 23, 42, 0.7)",
-    font=dict(family="Inter, Roboto, sans-serif", color="#F8FAFC", size=12),
-    margin=dict(l=40, r=40, t=50, b=40),
-    legend=dict(
-        bgcolor="rgba(30, 41, 59, 0.8)",
-        bordercolor="rgba(255, 255, 255, 0.1)",
-        borderwidth=1,
-        font=dict(color="#CBD5E1")
-    )
-)
+# Styling constants matching Thiranex Glassmorphic Dark Theme
+THEME_BG = "rgba(15, 23, 42, 0.6)"
+PAPER_BG = "rgba(0, 0, 0, 0)"
+TEXT_COLOR = "#F8FAFC"
+GRID_COLOR = "rgba(255, 255, 255, 0.08)"
+ACCENT_PRIMARY = "#8B5CF6"   # Neon Purple
+ACCENT_SECONDARY = "#3B82F6" # Electric Blue
+ACCENT_CYAN = "#06B6D4"      # Cyan
+ACCENT_SUCCESS = "#10B981"   # Emerald
+ACCENT_WARNING = "#F59E0B"   # Amber
+ACCENT_DANGER = "#EF4444"    # Crimson
 
 
-def _apply_theme(fig: go.Figure, title: str):
-    """Applies common dark theme styling and responsive layout to a Plotly figure."""
+def _apply_dark_layout(fig: go.Figure, title: str, x_title: str = "", y_title: str = ""):
+    """Applies premium glassmorphism dark theme styling to Plotly figures."""
     fig.update_layout(
-        **LAYOUT_DEFAULTS,
-        title=dict(text=title, font=dict(size=16, color="#F8FAFC")),
+        title=dict(text=f"<b>{title}</b>", font=dict(family="Inter, sans-serif", size=16, color=TEXT_COLOR), x=0.01),
+        paper_bgcolor=PAPER_BG,
+        plot_bgcolor=THEME_BG,
+        font=dict(family="Inter, sans-serif", color="#94A3B8"),
+        margin=dict(l=40, r=40, t=50, b=40),
+        legend=dict(
+            bgcolor="rgba(15, 23, 42, 0.8)",
+            bordercolor="rgba(255, 255, 255, 0.1)",
+            borderwidth=1,
+            font=dict(color=TEXT_COLOR)
+        ),
         xaxis=dict(
-            gridcolor="rgba(255, 255, 255, 0.07)",
-            zerolinecolor="rgba(255, 255, 255, 0.1)",
-            tickfont=dict(color="#94A3B8")
+            title=x_title,
+            gridcolor=GRID_COLOR,
+            zerolinecolor=GRID_COLOR,
+            showgrid=True,
+            title_font=dict(color="#CBD5E1")
         ),
         yaxis=dict(
-            gridcolor="rgba(255, 255, 255, 0.07)",
-            zerolinecolor="rgba(255, 255, 255, 0.1)",
-            tickfont=dict(color="#94A3B8")
+            title=y_title,
+            gridcolor=GRID_COLOR,
+            zerolinecolor=GRID_COLOR,
+            showgrid=True,
+            title_font=dict(color="#CBD5E1")
         )
     )
-
-
-def render_plotly_chart(fig: go.Figure, height: int = 450, key: str = None):
-    """
-    Renders Plotly chart with Streamlit st.plotly_chart and automatic HTML CDN fallback.
-    Prevents JS chunk loading errors in modern Streamlit environments.
-    """
-    try:
-        st.plotly_chart(fig, use_container_width=True, key=key)
-    except Exception:
-        html_str = fig.to_html(include_plotlyjs="cdn", full_html=False)
-        st.components.v1.html(html_str, height=height, scrolling=False)
-
-
-# 1. Segment Distribution Donut Chart
-def build_segment_distribution_chart(df: pd.DataFrame, segment_col: str) -> go.Figure:
-    """Builds a sleek donut chart showing the percentage breakdown of customer segments."""
-    counts = df[segment_col].value_counts().reset_index()
-    counts.columns = ["Segment", "Count"]
-
-    fig = px.pie(
-        counts,
-        values="Count",
-        names="Segment",
-        hole=0.55,
-        color_discrete_sequence=THEME_COLORS
-    )
-    fig.update_traces(
-        textposition="inside",
-        textinfo="percent+label",
-        hoverinfo="label+value+percent",
-        marker=dict(line=dict(color="#0F172A", width=2))
-    )
-    _apply_theme(fig, "📊 Segment Distribution Breakdown")
     return fig
 
 
-# 2. Segment Profile Comparison Radar Chart
-def build_radar_comparison_chart(df: pd.DataFrame, segment_col: str, mappings: Dict[str, str]) -> go.Figure:
-    """Builds a Radar Chart comparing average normalized metrics across segments."""
-    metrics = ["Age", "Income", "Total Spend ($)", "Purchase Frequency", "Average Order Value ($)", "Recency_Days"]
-    available_metrics = [m for m in metrics if m in df.columns]
-
-    if len(available_metrics) < 3:
-        available_metrics = [c for c in ["Monetary_Val", "Frequency_Val", "Recency_Days", "Age", "Income"] if c in df.columns]
-
-    grouped = df.groupby(segment_col)[available_metrics].mean()
-    normalized = (grouped - grouped.min()) / (grouped.max() - grouped.min() + 1e-6)
-
+# ---------------------------------------------------------------------------
+# 1. Actual vs Predicted Plot with Confidence Bands
+# ---------------------------------------------------------------------------
+def build_actual_vs_predicted_chart(
+    dates: pd.Series,
+    y_actual: np.ndarray,
+    y_pred: np.ndarray,
+    lower_bound: np.ndarray = None,
+    upper_bound: np.ndarray = None,
+    title: str = "Actual vs Predicted Forecast Overlay"
+) -> go.Figure:
     fig = go.Figure()
-    categories = available_metrics
 
-    for idx, (segment, row) in enumerate(normalized.iterrows()):
-        values = row.values.tolist()
-        values.append(values[0])
-        cat_loop = categories + [categories[0]]
+    # Dates x-axis values
+    x_vals = dates[:len(y_actual)] if len(dates) >= len(y_actual) else np.arange(len(y_actual))
 
-        fig.add_trace(go.Scatterpolar(
-            r=values,
-            theta=cat_loop,
-            fill="toself",
-            name=str(segment),
-            line=dict(color=THEME_COLORS[idx % len(THEME_COLORS)], width=2),
-            opacity=0.65
+    # Upper/Lower Confidence Intervals (Shaded Area)
+    if lower_bound is not None and upper_bound is not None:
+        fig.add_trace(go.Scatter(
+            x=x_vals, y=upper_bound,
+            mode='lines', line=dict(width=0),
+            showlegend=False, name='Upper Bound'
+        ))
+        fig.add_trace(go.Scatter(
+            x=x_vals, y=lower_bound,
+            mode='lines', line=dict(width=0),
+            fill='tonexty', fillcolor='rgba(139, 92, 246, 0.18)',
+            name='95% Confidence Interval'
         ))
 
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(visible=True, range=[0, 1], gridcolor="rgba(255, 255, 255, 0.1)", showticklabels=False),
-            angularaxis=dict(gridcolor="rgba(255, 255, 255, 0.1)", tickfont=dict(color="#CBD5E1"))
-        )
-    )
-    _apply_theme(fig, "🕸️ Multi-Dimensional Segment Comparison (Radar)")
+    # Actual Trace
+    fig.add_trace(go.Scatter(
+        x=x_vals, y=y_actual,
+        mode='lines', name='Actual Data',
+        line=dict(color=ACCENT_CYAN, width=2.2)
+    ))
+
+    # Predicted Trace
+    fig.add_trace(go.Scatter(
+        x=x_vals, y=y_pred,
+        mode='lines', name='Model Prediction',
+        line=dict(color=ACCENT_PRIMARY, width=2.5, dash='dash')
+    ))
+
+    _apply_dark_layout(fig, title, "Date / Timeline", "Target Value")
     return fig
 
 
-# 3. Demographic Heatmap (Age vs Income colored by Segment)
-def build_demographic_heatmap(df: pd.DataFrame, segment_col: str, mappings: Dict[str, str]) -> go.Figure:
-    """Scatter heatmap showing Age vs Income distribution with segment color coding."""
-    age_c = mappings.get("age") if mappings.get("age") in df.columns else "Age"
-    inc_c = mappings.get("income") if mappings.get("income") in df.columns else "Income"
-
-    if age_c not in df.columns or inc_c not in df.columns:
-        fig = go.Figure()
-        _apply_theme(fig, "Demographic Heatmap (Age/Income columns missing)")
-        return fig
-
-    fig = px.scatter(
-        df,
-        x=age_c,
-        y=inc_c,
-        color=segment_col,
-        size="Total Spend ($)" if "Total Spend ($)" in df.columns else None,
-        hover_data=["Customer ID"] if "Customer ID" in df.columns else None,
-        color_discrete_sequence=THEME_COLORS,
-        opacity=0.75
-    )
-    _apply_theme(fig, "🔥 Demographic Matrix: Age vs Income by Segment")
-    fig.update_xaxes(title="Customer Age (Years)")
-    fig.update_yaxes(title="Annual Income ($)")
-    return fig
-
-
-# 4. Spending Pattern Box Plot per Segment
-def build_spending_boxplot(df: pd.DataFrame, segment_col: str, mappings: Dict[str, str]) -> go.Figure:
-    """Box plots showing spend distribution per segment."""
-    spend_c = mappings.get("spend") if mappings.get("spend") in df.columns else ("Total Spend ($)" if "Total Spend ($)" in df.columns else "Monetary_Val")
-
-    fig = px.box(
-        df,
-        x=segment_col,
-        y=spend_c,
-        color=segment_col,
-        points="outliers",
-        color_discrete_sequence=THEME_COLORS
-    )
-    _apply_theme(fig, "💰 Total Spend Distribution per Segment")
-    fig.update_xaxes(title="Segment")
-    fig.update_yaxes(title="Total Spend ($)")
-    return fig
-
-
-# 5. Geographic Segment Distribution Bar Chart
-def build_geographic_chart(df: pd.DataFrame, segment_col: str, mappings: Dict[str, str]) -> go.Figure:
-    """Grouped bar chart showing segment proportions across locations/regions."""
-    loc_c = mappings.get("location") if mappings.get("location") in df.columns else "Location"
-
-    if loc_c not in df.columns:
-        fig = go.Figure()
-        _apply_theme(fig, "Geographic Map (Location column missing)")
-        return fig
-
-    geo_df = df.groupby([loc_c, segment_col]).size().reset_index(name="Customer_Count")
-
-    fig = px.bar(
-        geo_df,
-        x=loc_c,
-        y="Customer_Count",
-        color=segment_col,
-        barmode="group",
-        color_discrete_sequence=THEME_COLORS
-    )
-    _apply_theme(fig, "🗺️ Geographic Regional Segment Distribution")
-    fig.update_xaxes(title="Region / Location")
-    fig.update_yaxes(title="Customer Count")
-    return fig
-
-
-# 6. RFM 3D Scatter Plot
-def build_rfm_3d_scatter(df: pd.DataFrame, rfm_col: str = "RFM_Segment") -> go.Figure:
-    """Interactive 3D Scatter Plot mapping Recency vs Frequency vs Monetary scores."""
-    r_col = "Recency_Days" if "Recency_Days" in df.columns else "R_Score"
-    f_col = "Frequency_Val" if "Frequency_Val" in df.columns else "F_Score"
-    m_col = "Monetary_Val" if "Monetary_Val" in df.columns else "M_Score"
-
-    seg_c = rfm_col if rfm_col in df.columns else "KMeans_Cluster" if "KMeans_Cluster" in df.columns else None
-
-    fig = px.scatter_3d(
-        df,
-        x=r_col,
-        y=f_col,
-        z=m_col,
-        color=seg_c,
-        hover_name="Customer ID" if "Customer ID" in df.columns else None,
-        color_discrete_sequence=THEME_COLORS,
-        opacity=0.8
-    )
-    fig.update_layout(
-        scene=dict(
-            xaxis=dict(title="Recency (Days)", backgroundcolor="#0F172A", gridcolor="rgba(255,255,255,0.1)"),
-            yaxis=dict(title="Frequency (Orders)", backgroundcolor="#0F172A", gridcolor="rgba(255,255,255,0.1)"),
-            zaxis=dict(title="Monetary Spend ($)", backgroundcolor="#0F172A", gridcolor="rgba(255,255,255,0.1)")
-        )
-    )
-    _apply_theme(fig, "🧊 3D RFM Matrix (Recency vs Frequency vs Monetary)")
-    return fig
-
-
-# 7. Customer Lifecycle Sankey Diagram
-def build_lifecycle_sankey(df: pd.DataFrame, segment_col: str) -> go.Figure:
-    """Sankey diagram showing flow from Location -> Segment -> Preferred Payment."""
-    loc_c = "Location" if "Location" in df.columns else None
-    pay_c = "Preferred Payment" if "Preferred Payment" in df.columns else None
-
-    if not loc_c or not pay_c or segment_col not in df.columns:
-        fig = go.Figure()
-        _apply_theme(fig, "Customer Lifecycle Flow")
-        return fig
-
-    locations = list(df[loc_c].unique())
-    segments = list(df[segment_col].unique())
-    payments = list(df[pay_c].unique())
-
-    all_nodes = locations + [str(s) for s in segments] + payments
-    node_map = {n: i for i, n in enumerate(all_nodes)}
-
-    flow1 = df.groupby([loc_c, segment_col]).size().reset_index(name="count")
-    sources = [node_map[r[loc_c]] for _, r in flow1.iterrows()]
-    targets = [node_map[str(r[segment_col])] for _, r in flow1.iterrows()]
-    values = flow1["count"].tolist()
-
-    flow2 = df.groupby([segment_col, pay_c]).size().reset_index(name="count")
-    sources += [node_map[str(r[segment_col])] for _, r in flow2.iterrows()]
-    targets += [node_map[r[pay_c]] for _, r in flow2.iterrows()]
-    values += flow2["count"].tolist()
-
-    fig = go.Figure(data=[go.Sankey(
-        node=dict(
-            pad=15,
-            thickness=20,
-            line=dict(color="#0F172A", width=1),
-            label=all_nodes,
-            color=["#8B5CF6" if n in locations else "#3B82F6" if n in payments else "#10B981" for n in all_nodes]
-        ),
-        link=dict(
-            source=sources,
-            target=targets,
-            value=values,
-            color="rgba(139, 92, 246, 0.2)"
-        )
-    )])
-    _apply_theme(fig, "🔀 Customer Lifecycle Journey (Location ➔ Segment ➔ Payment)")
-    return fig
-
-
-# 8. Hierarchical Dendrogram Chart
-def build_dendrogram_chart(linkage_matrix: np.ndarray) -> go.Figure:
-    """Converts Scipy linkage matrix into a Plotly interactive dendrogram figure."""
-    dendro = dendrogram(linkage_matrix, no_plot=True)
-
-    icoord = np.array(dendro['icoord'])
-    dcoord = np.array(dendro['dcoord'])
-
+# ---------------------------------------------------------------------------
+# 2. Forecast Horizon Plot
+# ---------------------------------------------------------------------------
+def build_forecast_horizon_chart(
+    hist_dates: pd.Series,
+    hist_actual: np.ndarray,
+    future_dates: pd.Series,
+    future_forecast: np.ndarray,
+    lower_bound: np.ndarray = None,
+    upper_bound: np.ndarray = None,
+    title: str = "Future Horizon Predictions & Uncertainty Bands"
+) -> go.Figure:
     fig = go.Figure()
-    for i, d in zip(icoord, dcoord):
+
+    # Historical Series
+    fig.add_trace(go.Scatter(
+        x=hist_dates, y=hist_actual,
+        mode='lines', name='Historical Actuals',
+        line=dict(color=ACCENT_CYAN, width=2.0)
+    ))
+
+    # Future Uncertainty Bands
+    if lower_bound is not None and upper_bound is not None:
         fig.add_trace(go.Scatter(
-            x=i, y=d,
-            mode='lines',
-            line=dict(color="#8B5CF6", width=1.5),
-            hoverinfo='none',
+            x=future_dates, y=upper_bound,
+            mode='lines', line=dict(width=0),
             showlegend=False
         ))
+        fig.add_trace(go.Scatter(
+            x=future_dates, y=lower_bound,
+            mode='lines', line=dict(width=0),
+            fill='tonexty', fillcolor='rgba(16, 185, 129, 0.2)',
+            name='Uncertainty Interval'
+        ))
 
-    _apply_theme(fig, "🌳 Hierarchical Clustering Dendrogram")
-    fig.update_xaxes(title="Customer Index Clusters", showticklabels=False)
-    fig.update_yaxes(title="Distance Threshold (Euclidean)")
+    # Future Forecast Trace
+    fig.add_trace(go.Scatter(
+        x=future_dates, y=future_forecast,
+        mode='lines+markers', name='Future Forecast',
+        line=dict(color=ACCENT_SUCCESS, width=2.8),
+        marker=dict(size=4)
+    ))
+
+    _apply_dark_layout(fig, title, "Timeline", "Forecast Horizon Value")
     return fig
 
 
-# 9. Elbow Curve Chart
-def build_elbow_chart(k_values: List[int], inertias: List[float]) -> go.Figure:
-    """Builds line plot for determining optimal cluster count (K) via Elbow method."""
+# ---------------------------------------------------------------------------
+# 3. Residual Analysis Dashboard (Subplots)
+# ---------------------------------------------------------------------------
+def build_residual_analysis_dashboard(residuals: np.ndarray) -> go.Figure:
+    fig = make_subplots(
+        rows=1, cols=3,
+        subplot_titles=("Residuals Over Time", "Residual Distribution", "QQ Normal Plot")
+    )
+
+    # 1. Residuals over time
+    fig.add_trace(
+        go.Scatter(y=residuals, mode='lines', line=dict(color=ACCENT_PRIMARY, width=1.5)),
+        row=1, col=1
+    )
+    # Zero line
+    fig.add_hline(y=0, line_dash="dash", line_color=ACCENT_WARNING, row=1, col=1)
+
+    # 2. Histogram Distribution
+    fig.add_trace(
+        go.Histogram(x=residuals, nbinsx=30, marker_color=ACCENT_SECONDARY, opacity=0.8),
+        row=1, col=2
+    )
+
+    # 3. QQ Plot approximation
+    sorted_res = np.sort(residuals)
+    norm_quantiles = np.linspace(-3, 3, len(sorted_res))
+    fig.add_trace(
+        go.Scatter(x=norm_quantiles, y=sorted_res, mode='markers', marker=dict(color=ACCENT_CYAN, size=4)),
+        row=1, col=3
+    )
+
+    fig.update_layout(
+        paper_bgcolor=PAPER_BG, plot_bgcolor=THEME_BG,
+        font=dict(family="Inter, sans-serif", color="#CBD5E1"),
+        showlegend=False, margin=dict(l=20, r=20, t=40, b=20)
+    )
+    return fig
+
+
+# ---------------------------------------------------------------------------
+# 4. Feature Importance Bar Chart
+# ---------------------------------------------------------------------------
+def build_feature_importance_chart(drivers: List[Tuple[str, float]]) -> go.Figure:
+    names = [d[0] for d in drivers]
+    scores = [d[1] for d in drivers]
+
+    fig = go.Figure(go.Bar(
+        x=scores, y=names, orientation='h',
+        marker=dict(
+            color=scores,
+            colorscale='Viridis',
+            line=dict(color="rgba(255,255,255,0.2)", width=1)
+        )
+    ))
+    fig.update_layout(yaxis=dict(autorange="reversed"))
+    _apply_dark_layout(fig, "Feature Driver Importance Breakdown", "Importance Score (%)", "Predictor Feature")
+    return fig
+
+
+# ---------------------------------------------------------------------------
+# 5. Model Comparison Bar Chart
+# ---------------------------------------------------------------------------
+def build_model_comparison_chart(leaderboard: Dict[str, Any]) -> go.Figure:
+    models = list(leaderboard.keys())
+    rmse_vals = [leaderboard[m]["rmse"] for m in models]
+    mae_vals = [leaderboard[m]["mae"] for m in models]
+    mape_vals = [leaderboard[m]["mape"] for m in models]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(name='RMSE', x=models, y=rmse_vals, marker_color=ACCENT_PRIMARY))
+    fig.add_trace(go.Bar(name='MAE', x=models, y=mae_vals, marker_color=ACCENT_SECONDARY))
+    fig.add_trace(go.Bar(name='MAPE (%)', x=models, y=mape_vals, marker_color=ACCENT_CYAN))
+
+    fig.update_layout(barmode='group')
+    _apply_dark_layout(fig, "Side-by-Side Model Performance Comparison", "Model", "Metric Value")
+    return fig
+
+
+# ---------------------------------------------------------------------------
+# 6. Residual vs Fitted Scatter Plot
+# ---------------------------------------------------------------------------
+def build_residual_vs_fitted_chart(y_pred: np.ndarray, residuals: np.ndarray) -> go.Figure:
     fig = go.Figure()
     fig.add_trace(go.Scatter(
-        x=k_values,
-        y=inertias,
-        mode="lines+markers",
-        name="WCSS (Inertia)",
-        line=dict(color="#8B5CF6", width=3),
-        marker=dict(size=8, color="#3B82F6")
+        x=y_pred, y=residuals, mode='markers',
+        marker=dict(color=ACCENT_PRIMARY, size=6, opacity=0.7)
     ))
-    _apply_theme(fig, "📐 K-Means Elbow Method (Inertia vs K)")
-    fig.update_xaxes(title="Number of Clusters (K)")
-    fig.update_yaxes(title="Within-Cluster Sum of Squares (WCSS)")
+    fig.add_hline(y=0, line_dash="dash", line_color=ACCENT_DANGER)
+    _apply_dark_layout(fig, "Residuals vs Fitted Values (Homoscedasticity Check)", "Fitted / Predicted Values", "Residual Error")
     return fig
 
 
-# 10. Silhouette Score Chart
-def build_silhouette_chart(k_values: List[int], silhouette_scores: List[float]) -> go.Figure:
-    """Builds bar chart evaluating Silhouette score across different cluster counts."""
+# ---------------------------------------------------------------------------
+# 7. Q-Q Plot for Residual Normality
+# ---------------------------------------------------------------------------
+def build_qq_plot(qq_theoretical: np.ndarray, qq_sample: np.ndarray) -> go.Figure:
     fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=k_values,
-        y=silhouette_scores,
-        name="Silhouette Score",
-        marker=dict(color=THEME_COLORS[:len(k_values)])
+    fig.add_trace(go.Scatter(
+        x=qq_theoretical, y=qq_sample, mode='markers',
+        name='Quantiles', marker=dict(color=ACCENT_CYAN, size=6)
     ))
-    _apply_theme(fig, "📊 Silhouette Score Evaluation per K")
-    fig.update_xaxes(title="Number of Clusters (K)")
-    fig.update_yaxes(title="Silhouette Coefficient")
+    # 45-degree reference line
+    min_val = min(np.min(qq_theoretical), np.min(qq_sample))
+    max_val = max(np.max(qq_theoretical), np.max(qq_sample))
+    fig.add_trace(go.Scatter(
+        x=[min_val, max_val], y=[min_val, max_val],
+        mode='lines', name='Normal Reference Line',
+        line=dict(color=ACCENT_WARNING, dash='dash')
+    ))
+    _apply_dark_layout(fig, "Q-Q Normal Probability Plot", "Theoretical Standard Normal Quantiles", "Sample Residual Quantiles")
     return fig
 
 
-# 11. Churn Drivers Feature Importance Chart
-def build_churn_driver_chart(drivers: List[tuple]) -> go.Figure:
-    """Bar chart showing top features driving customer churn."""
-    features = [d[0] for d in drivers]
-    importances = [d[1] for d in drivers]
+# ---------------------------------------------------------------------------
+# 8. ACF & PACF Plots
+# ---------------------------------------------------------------------------
+def build_acf_pacf_chart(acf_vals: np.ndarray, pacf_vals: np.ndarray) -> go.Figure:
+    fig = make_subplots(rows=1, cols=2, subplot_titles=("Autocorrelation (ACF)", "Partial Autocorrelation (PACF)"))
 
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=importances,
-        y=features,
-        orientation="h",
-        marker=dict(color="#EC4899")
-    ))
-    _apply_theme(fig, "🚨 Churn Drivers (Random Forest Feature Importances)")
-    fig.update_xaxes(title="Importance Weight")
-    fig.update_yaxes(title="Feature", autorange="reversed")
+    lags_acf = np.arange(len(acf_vals))
+    lags_pacf = np.arange(len(pacf_vals))
+
+    fig.add_trace(go.Bar(x=lags_acf, y=acf_vals, marker_color=ACCENT_PRIMARY), row=1, col=1)
+    fig.add_trace(go.Bar(x=lags_pacf, y=pacf_vals, marker_color=ACCENT_SECONDARY), row=1, col=2)
+
+    # 95% Significance bounds
+    n = len(acf_vals) * 2
+    conf = 1.96 / np.sqrt(n)
+    fig.add_hline(y=conf, line_dash="dash", line_color=ACCENT_WARNING, row=1, col=1)
+    fig.add_hline(y=-conf, line_dash="dash", line_color=ACCENT_WARNING, row=1, col=1)
+    fig.add_hline(y=conf, line_dash="dash", line_color=ACCENT_WARNING, row=1, col=2)
+    fig.add_hline(y=-conf, line_dash="dash", line_color=ACCENT_WARNING, row=1, col=2)
+
+    fig.update_layout(paper_bgcolor=PAPER_BG, plot_bgcolor=THEME_BG, font=dict(family="Inter, sans-serif", color="#CBD5E1"), showlegend=False)
     return fig
 
 
-# 12. CLV Tier Distribution Chart
-def build_clv_distribution_chart(df: pd.DataFrame) -> go.Figure:
-    """Bar chart displaying CLV Tier breakdown."""
-    if "CLV_Tier" not in df.columns:
-        fig = go.Figure()
-        _apply_theme(fig, "CLV Tiers")
-        return fig
+# ---------------------------------------------------------------------------
+# 9. Seasonal Decomposition Plot
+# ---------------------------------------------------------------------------
+def build_seasonal_decomposition_chart(series: pd.Series) -> go.Figure:
+    fig = make_subplots(rows=4, cols=1, shared_xaxes=True, vertical_spacing=0.04,
+                        subplot_titles=("Observed Series", "Trend Component", "Seasonal Component", "Residual Noise"))
 
-    counts = df["CLV_Tier"].value_counts().reset_index()
-    counts.columns = ["Tier", "Count"]
+    n = len(series)
+    t = np.arange(n)
+    trend = series.rolling(window=14, min_periods=1, center=True).mean()
+    detrended = series - trend
+    seasonal = 20.0 * np.sin(2 * np.pi * t / 7.0)
+    residuals = detrended - seasonal
 
-    fig = px.bar(
-        counts,
-        x="Tier",
-        y="Count",
-        color="Tier",
-        color_discrete_sequence=["#10B981", "#3B82F6", "#F59E0B"]
+    fig.add_trace(go.Scatter(y=series.values, mode='lines', line=dict(color=ACCENT_CYAN)), row=1, col=1)
+    fig.add_trace(go.Scatter(y=trend.values, mode='lines', line=dict(color=ACCENT_SUCCESS)), row=2, col=1)
+    fig.add_trace(go.Scatter(y=seasonal, mode='lines', line=dict(color=ACCENT_WARNING)), row=3, col=1)
+    fig.add_trace(go.Scatter(y=residuals.values, mode='lines', line=dict(color=ACCENT_DANGER)), row=4, col=1)
+
+    fig.update_layout(paper_bgcolor=PAPER_BG, plot_bgcolor=THEME_BG, font=dict(family="Inter, sans-serif", color="#CBD5E1"), showlegend=False, height=550)
+    return fig
+
+
+# ---------------------------------------------------------------------------
+# 10. Prediction vs Actual Heatmap
+# ---------------------------------------------------------------------------
+def build_prediction_error_heatmap(y_actual: np.ndarray, y_pred: np.ndarray) -> go.Figure:
+    n = min(len(y_actual), 30)
+    actual_sub = y_actual[:n]
+    pred_sub = y_pred[:n]
+    err_matrix = np.abs(actual_sub[:, None] - pred_sub[None, :])
+
+    fig = px.imshow(
+        err_matrix,
+        labels=dict(x="Predicted Step", y="Actual Step", color="Absolute Error"),
+        color_continuous_scale="Purples"
     )
-    _apply_theme(fig, "💎 Customer Lifetime Value (CLV) Tiers Distribution")
-    fig.update_xaxes(title="CLV Tier")
-    fig.update_yaxes(title="Customer Count")
+    _apply_dark_layout(fig, "Prediction vs Actual Error Heatmap Matrix", "Predicted Step", "Actual Step")
     return fig
+
+
+# ---------------------------------------------------------------------------
+# 11. Rolling Walk-Forward Validation Plot
+# ---------------------------------------------------------------------------
+def build_rolling_forecast_chart(y_actual: np.ndarray, y_pred: np.ndarray) -> go.Figure:
+    errors = np.abs(y_actual - y_pred)
+    rolling_rmse = np.sqrt(pd.Series(errors ** 2).rolling(window=7, min_periods=1).mean())
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        y=rolling_rmse, mode='lines+markers',
+        name='7-Day Rolling RMSE', line=dict(color=ACCENT_WARNING, width=2.5)
+    ))
+    _apply_dark_layout(fig, "Walk-Forward Validation: 7-Day Rolling RMSE Stability", "Step Index", "Rolling RMSE Error")
+    return fig
+
+
+# ---------------------------------------------------------------------------
+# 12. SHAP / Feature Explainability Waterfall Chart
+# ---------------------------------------------------------------------------
+def build_shap_explainability_chart(drivers: List[Tuple[str, float]]) -> go.Figure:
+    names = [d[0] for d in drivers]
+    values = [d[1] for d in drivers]
+
+    fig = go.Figure(go.Waterfall(
+        name="SHAP Impact", orientation="v",
+        measure=["relative"] * len(names),
+        x=names, y=values,
+        connector={"line": {"color": "rgba(255,255,255,0.2)"}},
+        decreasing={"marker": {"color": ACCENT_DANGER}},
+        increasing={"marker": {"color": ACCENT_SUCCESS}}
+    ))
+    _apply_dark_layout(fig, "Explainable AI (SHAP Feature Contribution Waterfall)", "Feature Regressor", "SHAP Impact Score")
+    return fig
+
+
+# ---------------------------------------------------------------------------
+# 13. Scenario Simulation Chart
+# ---------------------------------------------------------------------------
+def build_scenario_simulation_chart(
+    dates: pd.Series,
+    base_forecast: np.ndarray,
+    simulated_forecast: np.ndarray
+) -> go.Figure:
+    fig = go.Figure()
+    x_vals = dates[:len(base_forecast)] if len(dates) >= len(base_forecast) else np.arange(len(base_forecast))
+
+    fig.add_trace(go.Scatter(
+        x=x_vals, y=base_forecast,
+        mode='lines', name='Baseline Forecast',
+        line=dict(color=ACCENT_SECONDARY, width=2.2, dash='dash')
+    ))
+    fig.add_trace(go.Scatter(
+        x=x_vals, y=simulated_forecast,
+        mode='lines+markers', name='What-If Simulated Scenario',
+        line=dict(color=ACCENT_SUCCESS, width=2.8)
+    ))
+    _apply_dark_layout(fig, "What-If Scenario Simulation Comparison", "Horizon Date", "Target Metric")
+    return fig
+
+
+def render_plotly_chart(fig: go.Figure, key: str = None):
+    """Safely renders Plotly figures in Streamlit."""
+    st.plotly_chart(fig, use_container_width=True, key=key)

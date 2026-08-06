@@ -1,30 +1,23 @@
 """
-Thiranex Solutions Customer Segmentation Suite — Modules Package
+=============================================================================
+Thiranex Solutions Predictive Analytics Suite — Modular Engine Package
+Author: Google Deepmind Agentic AI Team
+=============================================================================
 """
 
-from .data_loader import generate_sample_data, load_uploaded_file
-from .preprocessor import detect_column_types, generate_data_profile, extract_and_scale_features
-from .rfm_analyzer import calculate_rfm_scores
-from .kmeans_cluster import run_kmeans, compute_elbow_and_silhouette
-from .dbscan_cluster import run_dbscan
-from .hierarchical_cluster import run_hierarchical
-from .persona_builder import generate_segment_personas, generate_automated_narrative
-from .ai_predictor import predict_customer_churn, predict_customer_clv, generate_next_best_offer, analyze_purchase_patterns
+from .data_loader import load_uploaded_file, detect_column_types, generate_data_profile
+from .synthetic_data import generate_synthetic_timeseries
+from .preprocessor import clean_time_series_data, perform_stationarity_tests, engineer_time_series_features, split_time_series
+from .arima_model import fit_predict_sarima
+from .prophet_model import fit_predict_prophet
+from .regression_models import fit_predict_regression_model
+from .neural_network import fit_predict_neural_network
+from .model_selector import run_automl_suite, fit_predict_holt_winters
+from .model_evaluator import calculate_forecasting_metrics, analyze_residuals, compute_prediction_intervals
 from .chart_builder import *
-from .filters import render_sidebar_filters
-from .exporters import generate_pdf_personas_report, export_dataframe_to_csv
-from .ui_components import inject_custom_css, render_header_banner, render_kpi_card, render_persona_card, render_onboarding_tour, render_footer
-
-__all__ = [
-    "generate_sample_data", "load_uploaded_file",
-    "detect_column_types", "generate_data_profile", "extract_and_scale_features",
-    "calculate_rfm_scores",
-    "run_kmeans", "compute_elbow_and_silhouette",
-    "run_dbscan",
-    "run_hierarchical",
-    "generate_segment_personas", "generate_automated_narrative",
-    "predict_customer_churn", "predict_customer_clv", "generate_next_best_offer", "analyze_purchase_patterns",
-    "render_sidebar_filters",
-    "generate_pdf_personas_report", "export_dataframe_to_csv",
-    "inject_custom_css", "render_header_banner", "render_kpi_card", "render_persona_card", "render_onboarding_tour", "render_footer"
-]
+from .scenario_analyzer import simulate_what_if_scenario
+from .insight_generator import generate_ai_executive_summary
+from .novelty_features import *
+from .filters import render_sidebar_controls
+from .exporters import generate_forecast_csv, generate_forecast_json_api, generate_executive_pdf_report
+from .ui_components import inject_custom_css, render_header_banner, render_kpi_card, render_onboarding_tour, render_footer

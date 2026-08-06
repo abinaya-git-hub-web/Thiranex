@@ -1,164 +1,177 @@
 """
-Module: data_loader.py
-Description: Handles synthetic customer dataset generation with 3 realistic segments 
-             and custom file uploads (CSV, Excel, JSON) for Thiranex Solutions.
+=============================================================================
+Thiranex Solutions — Smart Data Loader & Profiling Engine
+Author: Google Deepmind Agentic AI Team
+=============================================================================
 """
 
-import io
 import pandas as pd
 import numpy as np
-import streamlit as st
-from typing import Tuple, Optional
-from datetime import datetime, timedelta
+import io
+import json
+from typing import Dict, Any, Tuple, Optional, List
 
 
-@st.cache_data(show_spinner=False)
-def generate_sample_data(num_rows: int = 1000) -> pd.DataFrame:
-    """
-    Generates 1000+ realistic synthetic customer records with 3 distinct behavioral segments:
-    1. High-Value Premium (20%): High spend, high frequency, high income
-    2. Regular Bargain (35%): Medium spend, medium frequency, price-sensitive
-    3. Occasional Explorers (45%): Low spend, low frequency, exploring products
-
-    Returns:
-        pd.DataFrame: Comprehensive customer dataset ready for segmentation & ML analysis.
-    """
-    np.random.seed(42)
-
-    # Segment allocation ratios
-    n_premium = int(num_rows * 0.20)
-    n_regular = int(num_rows * 0.35)
-    n_occasional = num_rows - n_premium - n_regular
-
-    categories_pool = ["Electronics", "Clothing", "Grocery", "Home", "Beauty", "Sports", "Books", "Toys"]
-    payment_pool = ["Credit Card", "Debit Card", "UPI", "Cash", "Net Banking"]
-    occupations_pool = ["Professional", "Student", "Retired", "Business", "Freelancer", "Homemaker"]
-    locations_pool = ["North", "South", "East", "West", "Central"]
-    genders_pool = ["Male", "Female", "Other"]
-
-    today = datetime.now()
-
-    # --- 1. High-Value Premium Segment (20%) ---
-    premium_ids = [f"CUST-{i+1:04d}" for i in range(n_premium)]
-    premium_age = np.random.randint(28, 62, size=n_premium)
-    premium_gender = np.random.choice(genders_pool, size=n_premium, p=[0.48, 0.48, 0.04])
-    premium_location = np.random.choice(locations_pool, size=n_premium, p=[0.30, 0.25, 0.20, 0.15, 0.10])
-    premium_income = np.random.randint(90000, 150001, size=n_premium)
-    premium_occ = np.random.choice(["Professional", "Business", "Freelancer"], size=n_premium, p=[0.60, 0.30, 0.10])
-    premium_spend = np.random.uniform(5500, 10000, size=n_premium)
-    premium_freq = np.random.randint(28, 51, size=n_premium)
-    premium_aov = np.round(premium_spend / premium_freq, 2)
-    premium_cats = [", ".join(np.random.choice(categories_pool, size=np.random.randint(3, 6), replace=False)) for _ in range(n_premium)]
-    premium_last_days = np.random.randint(1, 45, size=n_premium)
-    premium_since_days = np.random.randint(365, 1095, size=n_premium)
-    premium_pay = np.random.choice(payment_pool, size=n_premium, p=[0.55, 0.15, 0.20, 0.02, 0.08])
-    premium_sat = np.random.choice([4, 5], size=n_premium, p=[0.30, 0.70])
-
-    # --- 2. Regular Bargain Segment (35%) ---
-    start_idx = n_premium
-    regular_ids = [f"CUST-{start_idx + i + 1:04d}" for i in range(n_regular)]
-    regular_age = np.random.randint(22, 65, size=n_regular)
-    regular_gender = np.random.choice(genders_pool, size=n_regular, p=[0.47, 0.49, 0.04])
-    regular_location = np.random.choice(locations_pool, size=n_regular, p=[0.20, 0.25, 0.25, 0.15, 0.15])
-    regular_income = np.random.randint(45000, 90000, size=n_regular)
-    regular_occ = np.random.choice(occupations_pool, size=n_regular, p=[0.35, 0.15, 0.10, 0.15, 0.15, 0.10])
-    regular_spend = np.random.uniform(1800, 5499, size=n_regular)
-    regular_freq = np.random.randint(12, 28, size=n_regular)
-    regular_aov = np.round(regular_spend / regular_freq, 2)
-    regular_cats = [", ".join(np.random.choice(categories_pool, size=np.random.randint(2, 4), replace=False)) for _ in range(n_regular)]
-    regular_last_days = np.random.randint(10, 120, size=n_regular)
-    regular_since_days = np.random.randint(180, 1000, size=n_regular)
-    regular_pay = np.random.choice(payment_pool, size=n_regular, p=[0.25, 0.35, 0.25, 0.05, 0.10])
-    regular_sat = np.random.choice([3, 4, 5], size=n_regular, p=[0.25, 0.55, 0.20])
-
-    # --- 3. Occasional Explorers Segment (45%) ---
-    start_idx = n_premium + n_regular
-    occ_ids = [f"CUST-{start_idx + i + 1:04d}" for i in range(n_occasional)]
-    occ_age = np.random.randint(18, 70, size=n_occasional)
-    occ_gender = np.random.choice(genders_pool, size=n_occasional, p=[0.46, 0.50, 0.04])
-    occ_location = np.random.choice(locations_pool, size=n_occasional, p=[0.18, 0.22, 0.20, 0.22, 0.18])
-    occ_income = np.random.randint(20000, 50000, size=n_occasional)
-    occ_occ = np.random.choice(occupations_pool, size=n_occasional, p=[0.20, 0.35, 0.15, 0.05, 0.15, 0.10])
-    occ_spend = np.random.uniform(100, 1799, size=n_occasional)
-    occ_freq = np.random.randint(1, 12, size=n_occasional)
-    occ_aov = np.round(occ_spend / occ_freq, 2)
-    occ_cats = [", ".join(np.random.choice(categories_pool, size=np.random.randint(1, 3), replace=False)) for _ in range(n_occasional)]
-    occ_last_days = np.random.randint(30, 365, size=n_occasional)
-    occ_since_days = np.random.randint(30, 730, size=n_occasional)
-    occ_pay = np.random.choice(payment_pool, size=n_occasional, p=[0.15, 0.30, 0.40, 0.10, 0.05])
-    occ_sat = np.random.choice([1, 2, 3, 4], size=n_occasional, p=[0.15, 0.25, 0.40, 0.20])
-
-    # Combine lists
-    cust_ids = premium_ids + regular_ids + occ_ids
-    ages = np.concatenate([premium_age, regular_age, occ_age])
-    genders = np.concatenate([premium_gender, regular_gender, occ_gender])
-    locations = np.concatenate([premium_location, regular_location, occ_location])
-    incomes = np.concatenate([premium_income, regular_income, occ_income])
-    occupations = np.concatenate([premium_occ, regular_occ, occ_occ])
-    spends = np.round(np.concatenate([premium_spend, regular_spend, occ_spend]), 2)
-    freqs = np.concatenate([premium_freq, regular_freq, occ_freq])
-    aovs = np.round(np.concatenate([premium_aov, regular_aov, occ_aov]), 2)
-    cats = premium_cats + regular_cats + occ_cats
-    last_days = np.concatenate([premium_last_days, regular_last_days, occ_last_days])
-    since_days = np.concatenate([premium_since_days, regular_since_days, occ_since_days])
-    payments = np.concatenate([premium_pay, regular_pay, occ_pay])
-    satisfactions = np.concatenate([premium_sat, regular_sat, occ_sat])
-
-    last_purchase_dates = [(today - timedelta(days=int(d))).strftime("%Y-%m-%d") for d in last_days]
-    customer_since_dates = [(today - timedelta(days=int(d))).strftime("%Y-%m-%d") for d in since_days]
-    order_counts = freqs  # Equivalent to purchase frequency
-
-    df = pd.DataFrame({
-        "Customer ID": cust_ids,
-        "Age": ages,
-        "Gender": genders,
-        "Location": locations,
-        "Income": incomes,
-        "Occupation": occupations,
-        "Total Spend ($)": spends,
-        "Purchase Frequency": freqs,
-        "Order Count": order_counts,
-        "Average Order Value ($)": aovs,
-        "Product Categories Purchased": cats,
-        "Last Purchase Date": last_purchase_dates,
-        "Customer Since": customer_since_dates,
-        "Preferred Payment": payments,
-        "Satisfaction Score": satisfactions
-    })
-
-    # Shuffle rows to avoid contiguous order
-    df = df.sample(frac=1.0, random_state=42).reset_index(drop=True)
-    return df
-
-
-@st.cache_data(show_spinner=False)
 def load_uploaded_file(uploaded_file) -> Tuple[Optional[pd.DataFrame], Optional[str]]:
     """
-    Parses uploaded CSV, Excel, or JSON file into pandas DataFrame.
+    Parses CSV, Excel (.xlsx, .xls), and JSON file uploads safely into a DataFrame.
     """
-    if uploaded_file is None:
-        return None, "No file uploaded."
-
     filename = uploaded_file.name.lower()
-
     try:
         if filename.endswith(".csv"):
             df = pd.read_csv(uploaded_file)
         elif filename.endswith((".xlsx", ".xls")):
             df = pd.read_excel(uploaded_file)
         elif filename.endswith(".json"):
-            df = pd.read_json(uploaded_file)
+            # Attempt standard pandas json read or list of dicts
+            content = uploaded_file.read().decode("utf-8")
+            data = json.loads(content)
+            if isinstance(data, list):
+                df = pd.DataFrame(data)
+            elif isinstance(data, dict):
+                # Check for records orientation or single dict
+                if "data" in data and isinstance(data["data"], list):
+                    df = pd.DataFrame(data["data"])
+                else:
+                    df = pd.DataFrame([data])
+            else:
+                return None, "Invalid JSON structure. Expected array of objects or key-value dictionary."
         else:
-            return None, f"Unsupported file format: {uploaded_file.name}. Please upload CSV, Excel, or JSON."
+            return None, f"Unsupported file extension: {uploaded_file.name}"
 
         if df.empty:
             return None, "The uploaded dataset is empty."
 
-        if len(df) > 50000:
-            st.info(f"⚡ Dataset contains {len(df):,} rows. Downsampling 50,000 rows for optimal interactivity.")
-            df = df.sample(n=50000, random_state=42).sort_index()
-
         return df, None
-
     except Exception as e:
-        return None, f"Failed to parse dataset: {str(e)}"
+        return None, f"Error parsing file '{uploaded_file.name}': {str(e)}"
+
+
+def detect_column_types(df: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Automatically detects time-series date/timestamp column, target variable column,
+    numerical feature columns (regressors), categorical columns, and time series frequency.
+    """
+    cols = df.columns.tolist()
+
+    date_candidates = ["date", "timestamp", "period", "time", "datetime", "day", "month", "year"]
+    detected_date_col = None
+
+    # 1. Detect Date Column
+    for c in cols:
+        c_lower = str(c).lower().strip()
+        if any(keyword in c_lower for keyword in date_candidates):
+            detected_date_col = c
+            break
+
+    if not detected_date_col:
+        # Fallback: test if any column can be parsed as datetime
+        for c in cols:
+            if df[c].dtype == "object" or "datetime" in str(df[c].dtype).lower():
+                try:
+                    parsed = pd.to_datetime(df[c].dropna().head(20), errors="coerce")
+                    if parsed.notna().sum() > 15:
+                        detected_date_col = c
+                        break
+                except Exception:
+                    pass
+
+    if not detected_date_col and len(cols) > 0:
+        detected_date_col = cols[0]
+
+    # 2. Detect Target Column
+    target_keywords = ["sales", "revenue", "orders", "units", "traffic", "demand", "value", "y", "target"]
+    detected_target_col = None
+
+    for c in cols:
+        if c == detected_date_col:
+            continue
+        c_lower = str(c).lower().strip()
+        if any(keyword in c_lower for keyword in target_keywords):
+            detected_target_col = c
+            break
+
+    if not detected_target_col:
+        # Fallback: first numeric non-date column
+        numeric_cols = [c for c in cols if c != detected_date_col and pd.api.types.is_numeric_dtype(df[c])]
+        detected_target_col = numeric_cols[0] if numeric_cols else (cols[1] if len(cols) > 1 else cols[0])
+
+    # 3. Detect Regressor / Feature Columns
+    numeric_feature_cols = [
+        c for c in cols
+        if c not in [detected_date_col, detected_target_col] and pd.api.types.is_numeric_dtype(df[c])
+    ]
+    categorical_feature_cols = [
+        c for c in cols
+        if c not in [detected_date_col, detected_target_col] and not pd.api.types.is_numeric_dtype(df[c])
+    ]
+
+    # 4. Detect Frequency
+    detected_freq = "Daily"
+    if detected_date_col in df.columns:
+        try:
+            dates = pd.to_datetime(df[detected_date_col], errors="coerce").dropna().sort_values()
+            if len(dates) > 5:
+                diffs = dates.diff().dropna()
+                median_days = diffs.dt.days.median()
+                if median_days <= 1:
+                    detected_freq = "Daily (D)"
+                elif 6 <= median_days <= 8:
+                    detected_freq = "Weekly (W)"
+                elif 25 <= median_days <= 32:
+                    detected_freq = "Monthly (M)"
+                elif 85 <= median_days <= 95:
+                    detected_freq = "Quarterly (Q)"
+                elif median_days >= 350:
+                    detected_freq = "Yearly (Y)"
+        except Exception:
+            detected_freq = "Daily (D)"
+
+    return {
+        "date_col": detected_date_col,
+        "target_col": detected_target_col,
+        "numeric_features": numeric_feature_cols,
+        "categorical_features": categorical_feature_cols,
+        "frequency": detected_freq
+    }
+
+
+def generate_data_profile(df: pd.DataFrame, mappings: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Computes dataset profiling stats: missing values, data types, summary statistics,
+    and simple seasonality indicators.
+    """
+    total_rows = len(df)
+    total_cols = len(df.columns)
+    missing_total = int(df.isnull().sum().sum())
+    missing_pct = round((missing_total / (total_rows * total_cols)) * 100, 2) if total_rows > 0 else 0
+
+    target_col = mappings.get("target_col")
+    target_stats = {}
+    if target_col and target_col in df.columns and pd.api.types.is_numeric_dtype(df[target_col]):
+        s = df[target_col].dropna()
+        target_stats = {
+            "mean": float(s.mean()),
+            "std": float(s.std()),
+            "min": float(s.min()),
+            "max": float(s.max()),
+            "skewness": float(s.skew()),
+            "kurtosis": float(s.kurtosis())
+        }
+
+    date_col = mappings.get("date_col")
+    date_range_str = "N/A"
+    if date_col and date_col in df.columns:
+        parsed_dates = pd.to_datetime(df[date_col], errors="coerce").dropna()
+        if not parsed_dates.empty:
+            date_range_str = f"{parsed_dates.min().strftime('%Y-%m-%d')} to {parsed_dates.max().strftime('%Y-%m-%d')}"
+
+    return {
+        "total_rows": total_rows,
+        "total_cols": total_cols,
+        "missing_total": missing_total,
+        "missing_pct": missing_pct,
+        "date_range": date_range_str,
+        "frequency": mappings.get("frequency", "Daily (D)"),
+        "target_stats": target_stats
+    }
