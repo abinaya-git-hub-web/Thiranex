@@ -1,351 +1,228 @@
 """
 =============================================================================
-Thiranex Solutions — 10 Novel Enterprise Predictive Analytics Features
+Thiranex Solutions — Novelty Enterprise AI Features Suite
 Author: Google Deepmind Agentic AI Team
 =============================================================================
 """
 
 import pandas as pd
 import numpy as np
-from typing import Dict, Any, List, Tuple
+import re
+from datetime import datetime
+from typing import Dict, Any, List, Tuple, Optional
 
-
-# ---------------------------------------------------------------------------
-# Novel Feature A: Model Recommender Engine
-# ---------------------------------------------------------------------------
-def recommend_optimal_model(leaderboard_results: Dict[str, Any]) -> Dict[str, Any]:
+class DataLineageTracker:
     """
-    Ranks all tested models and recommends the best model with reasoning.
+    Manages audit logging, step version history, and step-by-step undo/rollback capabilities.
     """
-    if not leaderboard_results:
-        return {"best_model": "Ridge Regression", "reason": "Default linear baseline model."}
-
-    sorted_models = sorted(leaderboard_results.items(), key=lambda x: x[1]["rmse"])
-    best_name, best_metrics = sorted_models[0]
-    runner_up_name, runner_up_metrics = sorted_models[1] if len(sorted_models) > 1 else (best_name, best_metrics)
-
-    improvement_pct = round(((runner_up_metrics["rmse"] - best_metrics["rmse"]) / max(runner_up_metrics["rmse"], 1e-8)) * 100, 1)
-
-    reason = (
-        f"Selected **{best_name}** because it achieved the lowest Root Mean Squared Error (RMSE: {best_metrics['rmse']:.2f}) "
-        f"and MAPE ({best_metrics['mape']:.1f}%), outperforming {runner_up_name} by {max(improvement_pct, 0.5)}% accuracy."
-    )
-
-    return {
-        "best_model": best_name,
-        "rmse": best_metrics["rmse"],
-        "mae": best_metrics["mae"],
-        "mape": best_metrics["mape"],
-        "reason": reason,
-        "all_ranked": sorted_models
-    }
-
-
-# ---------------------------------------------------------------------------
-# Novel Feature B: Prediction Anomaly Monitor
-# ---------------------------------------------------------------------------
-def monitor_prediction_anomalies(
-    dates: pd.Series,
-    y_actual: np.ndarray,
-    y_pred: np.ndarray,
-    threshold_sigma: float = 2.0
-) -> Dict[str, Any]:
-    """
-    Flags real-time historical data points where actual values deviated beyond 2 or 3 standard deviations.
-    """
-    residuals = y_actual - y_pred
-    std_res = np.std(residuals)
-    mean_res = np.mean(residuals)
-
-    z_scores = np.abs((residuals - mean_res) / max(std_res, 1e-8))
-    anomaly_indices = np.where(z_scores > threshold_sigma)[0]
-
-    anomaly_records = []
-    for idx in anomaly_indices:
-        anomaly_records.append({
-            "index": int(idx),
-            "date": str(dates.iloc[idx])[:10] if idx < len(dates) else f"Step {idx}",
-            "actual": float(np.round(y_actual[idx], 2)),
-            "predicted": float(np.round(y_pred[idx], 2)),
-            "deviation": float(np.round(residuals[idx], 2)),
-            "z_score": float(np.round(z_scores[idx], 2)),
-            "status": "⚠️ Spike Anomaly" if residuals[idx] > 0 else "🚨 Dip Anomaly"
-        })
-
-    anomaly_pct = round((len(anomaly_records) / max(len(y_actual), 1)) * 100, 1)
-
-    return {
-        "anomaly_count": len(anomaly_records),
-        "anomaly_pct": anomaly_pct,
-        "anomalies": anomaly_records,
-        "threshold_sigma": threshold_sigma
-    }
-
-
-# ---------------------------------------------------------------------------
-# Novel Feature C: What-If Scenario Analyzer
-# ---------------------------------------------------------------------------
-def simulate_what_if_scenario(
-    base_forecast: np.ndarray,
-    marketing_change_pct: float = 0.0,
-    price_change_pct: float = 0.0,
-    competitor_impact_pct: float = 0.0,
-    marketing_elasticity: float = 0.35,
-    price_elasticity: float = -1.2,
-    competitor_elasticity: float = -0.4
-) -> Tuple[np.ndarray, Dict[str, float]]:
-    """
-    Simulates business scenario modifications (e.g. +15% marketing spend, -5% price shift).
-    """
-    marketing_factor = 1.0 + (marketing_change_pct / 100.0) * marketing_elasticity
-    price_factor = 1.0 + (price_change_pct / 100.0) * price_elasticity
-    competitor_factor = 1.0 + (competitor_impact_pct / 100.0) * competitor_elasticity
-
-    combined_multiplier = marketing_factor * price_factor * competitor_factor
-    simulated_forecast = base_forecast * combined_multiplier
-
-    base_total = float(np.sum(base_forecast))
-    simulated_total = float(np.sum(simulated_forecast))
-    net_delta = simulated_total - base_total
-    pct_change = round((net_delta / max(base_total, 1e-8)) * 100, 2)
-
-    summary = {
-        "base_total": round(base_total, 2),
-        "simulated_total": round(simulated_total, 2),
-        "net_delta": round(net_delta, 2),
-        "pct_change": pct_change
-    }
-
-    return simulated_forecast, summary
-
-
-# ---------------------------------------------------------------------------
-# Novel Feature D: Confidence-Based Risk-Advised Forecasting
-# ---------------------------------------------------------------------------
-def generate_risk_advised_forecast(
-    y_pred: np.ndarray,
-    lower_bound: np.ndarray,
-    upper_bound: np.ndarray
-) -> Dict[str, Any]:
-    """
-    Evaluates forecast uncertainty band spread and generates executive risk ratings.
-    """
-    spread = upper_bound - lower_bound
-    mean_pred = np.mean(y_pred)
-    relative_spread = np.mean(spread) / max(mean_pred, 1e-8)
-
-    if relative_spread < 0.20:
-        risk_level = "🟢 Low Risk (High Confidence)"
-        advice = "Historical variance is minimal. Standard operational budget & capacity planning recommended."
-    elif relative_spread < 0.40:
-        risk_level = "🟡 Moderate Risk (Medium Confidence)"
-        advice = "Moderate forecast variance. Maintain 10-15% safety stock buffer or flexible financial reserves."
-    else:
-        risk_level = "🔴 High Risk (Low Confidence / High Volatility)"
-        advice = "High volatility in prediction interval. Implement adaptive weekly review & conservative hedging."
-
-    return {
-        "risk_level": risk_level,
-        "relative_uncertainty_pct": round(float(relative_spread * 100), 1),
-        "advice": advice,
-        "p10_conservative_total": float(np.round(np.sum(lower_bound), 2)),
-        "p50_expected_total": float(np.round(np.sum(y_pred), 2)),
-        "p90_optimistic_total": float(np.round(np.sum(upper_bound), 2))
-    }
-
-
-# ---------------------------------------------------------------------------
-# Novel Feature E: Multi-Target Forecasting Engine
-# ---------------------------------------------------------------------------
-def run_multi_target_forecast(
-    df_train: pd.DataFrame,
-    df_test: pd.DataFrame,
-    target_cols: List[str]
-) -> Dict[str, Dict[str, np.ndarray]]:
-    """
-    Predicts multiple target variables simultaneously (e.g. Sales, Revenue, Units, Profit).
-    """
-    from modules.predictive_models import fit_predict_var, fit_predict_holt_winters
-
-    horizon = len(df_test)
-    var_forecasts, var_fitted, var_meta = fit_predict_var(df_train, target_cols, horizon)
-
-    multi_results = {}
-    for col in target_cols:
-        fc = var_forecasts.get(col, fit_predict_holt_winters(df_train[col], horizon)[0])
-        actual = df_test[col].values if col in df_test.columns else np.zeros(horizon)
-        rmse = float(np.sqrt(np.mean((actual - fc) ** 2))) if len(actual) == len(fc) else 0.0
-
-        multi_results[col] = {
-            "forecast": fc,
-            "total_predicted": float(np.round(np.sum(fc), 2)),
-            "mean_predicted": float(np.round(np.mean(fc), 2)),
-            "rmse": round(rmse, 2)
+    def __init__(self):
+        self.history: List[Dict[str, Any]] = []
+        
+    def record_step(self, step_name: str, df: pd.DataFrame, metrics: Dict[str, Any] = None):
+        snapshot = {
+            "step_index": len(self.history) + 1,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "step_name": step_name,
+            "row_count": len(df),
+            "col_count": len(df.columns),
+            "df_snapshot": df.copy(),
+            "metrics": metrics or {}
         }
+        self.history.append(snapshot)
 
-    return multi_results
+    def rollback_to_step(self, step_index: int) -> Tuple[Optional[pd.DataFrame], str]:
+        if 1 <= step_index <= len(self.history):
+            self.history = self.history[:step_index]
+            return self.history[-1]["df_snapshot"].copy(), f"Rolled back to Step {step_index}: '{self.history[-1]['step_name']}'"
+        return None, "Invalid step index for rollback."
 
+    def get_audit_trail_df(self) -> pd.DataFrame:
+        logs = []
+        for h in self.history:
+            logs.append({
+                "Step #": h["step_index"],
+                "Timestamp": h["timestamp"],
+                "Operation": h["step_name"],
+                "Rows": h["row_count"],
+                "Columns": h["col_count"],
+                "Details": str(h["metrics"])
+            })
+        return pd.DataFrame(logs)
 
-# ---------------------------------------------------------------------------
-# Novel Feature F: AI Executive Summary Generator
-# ---------------------------------------------------------------------------
-def generate_ai_executive_summary(
-    target_name: str,
-    best_model_name: str,
-    metrics: Dict[str, float],
-    forecast_sum: float,
-    historic_sum: float,
-    risk_info: Dict[str, Any],
-    anomalies_count: int
-) -> str:
+def detect_data_drift(df_baseline: pd.DataFrame, df_current: pd.DataFrame) -> Dict[str, Any]:
     """
-    Generates natural language automated executive briefing of forecast, performance, and risk.
+    Smart Data Health Monitor: Calculates distribution shift, mean drift, and pattern anomalies between baseline and current data.
     """
-    growth_pct = round(((forecast_sum - historic_sum) / max(historic_sum, 1e-8)) * 100, 1)
-    direction = "growth 📈" if growth_pct >= 0 else "contraction 📉"
+    if df_baseline is None or df_current is None or df_baseline.empty or df_current.empty:
+        return {"drift_detected": False, "drift_summary": "Insufficient data for drift analysis."}
 
-    summary_md = f"""
-    ### 🎯 Thiranex AI Executive Briefing — {target_name}
+    num_cols = df_baseline.select_dtypes(include=[np.number]).columns.intersection(df_current.columns)
+    drift_details = []
+    has_drift = False
 
-    **1. Forecast Direction & Projections:**
-    Over the next forecast horizon, predicted **{target_name}** totals **${forecast_sum:,.2f}** (or units), representing a **{abs(growth_pct)}% {direction}** compared to the prior baseline period (${historic_sum:,.2f}).
-
-    **2. Optimal Model Selection:**
-    The automated AutoML engine selected **{best_model_name}** as the top-performing algorithm. It achieved an outstanding **MAPE of {metrics.get('mape', 0.0)}%** and a Root Mean Squared Error (RMSE) of **{metrics.get('rmse', 0.0):,.2f}**, ensuring high analytical reliability.
-
-    **3. Risk & Anomaly Assessment:**
-    - **Risk Status**: {risk_info.get('risk_level', 'Low Risk')}
-    - **Uncertainty Spread**: {risk_info.get('relative_uncertainty_pct', 0.0)}%
-    - **Historical Anomalies**: Identified **{anomalies_count}** anomalous data points exceeding standard tolerance threshold.
-
-    **4. Strategic Recommendation:**
-    {risk_info.get('advice', 'Proceed with baseline strategic plan while monitoring key operational KPIs.')}
-    """
-    return summary_md.strip()
-
-
-# ---------------------------------------------------------------------------
-# Novel Feature G: Budget vs Forecast Variance Analysis
-# ---------------------------------------------------------------------------
-def calculate_budget_variance(
-    forecast_series: np.ndarray,
-    budget_target_total: float
-) -> Dict[str, Any]:
-    """
-    Compares predicted forecast against specified budget targets and calculates variances.
-    """
-    forecast_total = float(np.sum(forecast_series))
-    variance_amount = forecast_total - budget_target_total
-    variance_pct = round((variance_amount / max(budget_target_total, 1e-8)) * 100, 2)
-
-    if variance_amount >= 0:
-        status = "🟢 Favorable (Exceeds Budget Target)"
-        badge_color = "#10B981"
-    else:
-        status = "🔴 Unfavorable (Shortfall vs Budget Target)"
-        badge_color = "#EF4444"
-
-    return {
-        "forecast_total": round(forecast_total, 2),
-        "budget_target": round(budget_target_total, 2),
-        "variance_amount": round(variance_amount, 2),
-        "variance_pct": variance_pct,
-        "status": status,
-        "color": badge_color
-    }
-
-
-# ---------------------------------------------------------------------------
-# Novel Feature H: External Variable Impact Analyzer
-# ---------------------------------------------------------------------------
-def analyze_external_variable_impact(
-    df: pd.DataFrame,
-    target_col: str,
-    feature_cols: List[str]
-) -> List[Dict[str, Any]]:
-    """
-    Quantifies correlation and impact of external regressors (Marketing Spend, Competitor Activity, etc.).
-    """
-    impacts = []
-    if not feature_cols or target_col not in df.columns:
-        return impacts
-
-    target_s = df[target_col].dropna()
-    for col in feature_cols:
-        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
-            feat_s = df[col].dropna()
-            min_len = min(len(target_s), len(feat_s))
-            if min_len > 5:
-                corr = float(np.corrcoef(target_s.iloc[:min_len], feat_s.iloc[:min_len])[0, 1])
-                impact_type = "Positive Correlation 🟢" if corr > 0.3 else ("Negative Correlation 🔴" if corr < -0.3 else "Neutral / Weak ⚪")
-                impacts.append({
-                    "feature": col,
-                    "correlation": round(corr, 3),
-                    "impact_type": impact_type,
-                    "importance_score": round(abs(corr) * 100, 1)
+    for c in num_cols:
+        b_mean = df_baseline[c].mean()
+        c_mean = df_current[c].mean()
+        b_std = df_baseline[c].std()
+        
+        if b_std > 0:
+            z_shift = abs(c_mean - b_mean) / b_std
+            if z_shift > 0.5: # Significant shift
+                has_drift = True
+                drift_details.append({
+                    "Column": c,
+                    "Baseline_Mean": round(float(b_mean), 2),
+                    "Current_Mean": round(float(c_mean), 2),
+                    "Z_Shift": round(float(z_shift), 2),
+                    "Status": "⚠️ High Shift" if z_shift > 1.5 else "⚡ Moderate Shift"
                 })
 
-    return sorted(impacts, key=lambda x: x["importance_score"], reverse=True)
+    return {
+        "drift_detected": has_drift,
+        "drift_count": len(drift_details),
+        "details_df": pd.DataFrame(drift_details) if drift_details else pd.DataFrame(),
+        "summary": f"Detected distribution drift in {len(drift_details)} numerical columns." if has_drift else "No significant data drift detected."
+    }
 
-
-# ---------------------------------------------------------------------------
-# Novel Feature I: Explainable AI (SHAP / Feature Drivers)
-# ---------------------------------------------------------------------------
-def generate_feature_importance_breakdown(
-    model_name: str,
-    feature_cols: List[str],
-    df_train: pd.DataFrame,
-    target_col: str
-) -> List[Tuple[str, float]]:
+def talk_to_your_data_query(df: pd.DataFrame, query_str: str) -> Tuple[Optional[pd.DataFrame], str]:
     """
-    Generates explainable feature importance weights using Random Forest Regressor fit.
+    Translates natural language questions into pandas filter/query expressions.
+    Examples:
+    - 'show annual spend > 5000'
+    - 'filter age between 20 and 40'
+    - 'show rows where city is New York'
+    - 'top 10 credit score'
     """
-    num_feature_cols = [c for c in feature_cols if c in df_train.columns and pd.api.types.is_numeric_dtype(df_train[c])]
-    if not num_feature_cols or target_col not in df_train.columns:
-        return [("Time Trend", 100.0)]
+    if df is None or df.empty or not query_str.strip():
+        return df, "Query string empty."
 
-    from sklearn.ensemble import RandomForestRegressor
-    X = df_train[num_feature_cols].fillna(0)
-    y = df_train[target_col].fillna(0)
+    q_lower = query_str.lower().strip()
+    
+    try:
+        # Match 'top N by COLUMN'
+        top_match = re.search(r"top\s+(\d+)\s+(?:by\s+)?([a-zA-Z0-9_]+)", q_lower)
+        if top_match:
+            n = int(top_match.group(1))
+            col_target = top_match.group(2)
+            # Find matching column name
+            matched_col = [c for c in df.columns if col_target in c.lower()]
+            if matched_col:
+                res = df.nlargest(n, matched_col[0])
+                return res, f"Query Executed: Showing top {n} rows sorted by '{matched_col[0]}'."
 
-    rf = RandomForestRegressor(n_estimators=100, random_state=42)
-    rf.fit(X, y)
+        # Match 'COLUMN > NUMBER' or 'COLUMN < NUMBER'
+        num_match = re.search(r"([a-zA-Z0-9_]+)\s*(>|<|>=|<=|==|=)\s*(\d+(?:\.\d+)?)", q_lower)
+        if num_match:
+            col_name = num_match.group(1)
+            op = num_match.group(2)
+            if op == "=": op = "=="
+            val = float(num_match.group(3))
+            matched_col = [c for c in df.columns if col_name in c.lower()]
+            if matched_col:
+                target = matched_col[0]
+                expr = f"`{target}` {op} {val}"
+                res = df.query(expr)
+                return res, f"Query Executed: `{expr}` ({len(res)} matching records found)"
 
-    importances = rf.feature_importances_
-    sorted_pairs = sorted(zip(num_feature_cols, importances), key=lambda x: x[1], reverse=True)
-    return [(name, float(np.round(val * 100, 2))) for name, val in sorted_pairs]
+        # Match 'where COLUMN is VALUE'
+        text_match = re.search(r"(?:where|is|in)\s+([a-zA-Z0-9_]+)\s+(?:is|=|in)\s+['\"]?([a-zA-Z0-9_\s]+)['\"]?", q_lower)
+        if text_match:
+            col_name = text_match.group(1)
+            target_val = text_match.group(2).strip()
+            matched_col = [c for c in df.columns if col_name in c.lower()]
+            if matched_col:
+                target = matched_col[0]
+                res = df[df[target].astype(str).str.lower().str.contains(target_val, na=False)]
+                return res, f"Query Executed: Filtered '{target}' containing '{target_val}' ({len(res)} records found)"
 
+        # Fallback: substring search across all columns
+        res = df[df.apply(lambda row: row.astype(str).str.lower().str.contains(q_lower).any(), axis=1)]
+        return res, f"Search Executed: Keyword '{query_str}' matched {len(res)} rows."
 
-# ---------------------------------------------------------------------------
-# Novel Feature J: Adaptive Learning & Model Drift Detector
-# ---------------------------------------------------------------------------
-def detect_model_drift(
-    recent_actuals: np.ndarray,
-    recent_forecasts: np.ndarray,
-    baseline_mape: float = 10.0
-) -> Dict[str, Any]:
+    except Exception as e:
+        return df, f"Could not parse natural query: {str(e)}"
+
+def generate_smart_metadata_dictionary(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Monitors recent forecast error drift and indicates whether model retraining is required.
+    Smart Metadata Generator: Produces an automated Data Dictionary documenting data types, descriptions, null counts, and sample values.
     """
-    denom = np.maximum(np.abs(recent_actuals), 1e-8)
-    current_mape = float(np.mean(np.abs((recent_actuals - recent_forecasts) / denom)) * 100.0)
+    dict_rows = []
+    for col in df.columns:
+        s = df[col]
+        dtype = str(s.dtype)
+        null_cnt = int(s.isna().sum())
+        unique_cnt = int(s.nunique())
+        sample_vals = ", ".join([str(v) for v in s.dropna().unique()[:4]])
+        
+        # Inferred Description
+        col_lower = col.lower()
+        if "id" in col_lower:
+            desc = "Unique record identifier"
+        elif "date" in col_lower or "time" in col_lower:
+            desc = "Timestamp / date attribute"
+        elif "email" in col_lower:
+            desc = "Customer electronic mail address"
+        elif "phone" in col_lower:
+            desc = "Contact phone number"
+        elif "spend" in col_lower or "amount" in col_lower or "salary" in col_lower or "price" in col_lower:
+            desc = "Financial monetary measurement"
+        elif "score" in col_lower or "age" in col_lower or "count" in col_lower:
+            desc = "Quantitative numerical metric"
+        else:
+            desc = "Categorical / text feature attribute"
 
-    degradation_pct = round(((current_mape - baseline_mape) / max(baseline_mape, 1e-8)) * 100, 1)
+        dict_rows.append({
+            "Column Name": col,
+            "Data Type": dtype,
+            "Inferred Description": desc,
+            "Null Count": null_cnt,
+            "Completeness %": round(((len(df) - null_cnt) / max(len(df), 1)) * 100.0, 1),
+            "Cardinality": unique_cnt,
+            "Sample Values": sample_vals
+        })
+    return pd.DataFrame(dict_rows)
 
-    if current_mape > baseline_mape * 1.5:
-        drift_status = "🚨 High Drift Detected — Immediate Retraining Recommended"
-        retrain_needed = True
-    elif current_mape > baseline_mape * 1.2:
-        drift_status = "⚠️ Moderate Degradation — Monitor Next Period"
-        retrain_needed = False
-    else:
-        drift_status = "🟢 Optimal Performance — No Drift Detected"
-        retrain_needed = False
+def validate_custom_rules(df: pd.DataFrame, rules: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Custom Validation Framework: Validates user-defined rules (Range checks, Regex pattern matching, Non-Null constraints).
+    Rule structure: {'column': 'Age', 'rule_type': 'Range', 'min': 0, 'max': 120}
+    """
+    if df is None or df.empty or not rules:
+        return {"passed": True, "violations_count": 0, "log": []}
+
+    violations = []
+    total_violating_rows = 0
+
+    for r in rules:
+        col = r.get("column")
+        rule_type = r.get("rule_type")
+        if col not in df.columns:
+            continue
+
+        if rule_type == "Range Check":
+            min_val, max_val = r.get("min", -1e9), r.get("max", 1e9)
+            invalid_mask = (df[col] < min_val) | (df[col] > max_val)
+            cnt = int(invalid_mask.sum())
+            if cnt > 0:
+                total_violating_rows += cnt
+                violations.append(f"❌ Range Violation on '{col}': {cnt} rows outside [{min_val}, {max_val}]")
+        
+        elif rule_type == "Non-Null Constraint":
+            cnt = int(df[col].isna().sum())
+            if cnt > 0:
+                total_violating_rows += cnt
+                violations.append(f"❌ Null Violation on '{col}': {cnt} missing values found.")
+
+        elif rule_type == "Regex Match":
+            pattern = r.get("regex", r".*")
+            invalid_mask = df[col].dropna().astype(str).apply(lambda x: not bool(re.match(pattern, x)))
+            cnt = int(invalid_mask.sum())
+            if cnt > 0:
+                total_violating_rows += cnt
+                violations.append(f"❌ Pattern Violation on '{col}': {cnt} values fail regex '{pattern}'")
 
     return {
-        "current_mape": round(current_mape, 2),
-        "baseline_mape": round(baseline_mape, 2),
-        "degradation_pct": degradation_pct,
-        "drift_status": drift_status,
-        "retrain_needed": retrain_needed
+        "passed": len(violations) == 0,
+        "violations_count": total_violating_rows,
+        "log": violations if violations else ["✅ All custom validation rules passed successfully!"]
     }

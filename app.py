@@ -1,8 +1,8 @@
 """
 =============================================================================
-Thiranex Solutions — Enterprise Predictive Analytics Application
+Thiranex Solutions — Enterprise Data Cleaning & Reporting Automation Platform
 Author: Google Deepmind Agentic AI Team
-Technology Stack: Streamlit, Scikit-learn, Statsmodels, Prophet, Plotly, ReportLab
+Technology Stack: Streamlit, Pandas, NumPy, Scikit-Learn, OpenPyXL, ReportLab, Plotly
 =============================================================================
 """
 
@@ -10,463 +10,391 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import warnings
+import json
 
 # Page Configuration
 st.set_page_config(
-    page_title="Thiranex Solutions — Enterprise Predictive Analytics Studio",
+    page_title="Thiranex Solutions — Data Cleaning & Reporting Platform",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Import Modular Engine Components according to Thiranex Architecture
-from modules.synthetic_data import generate_synthetic_timeseries
-from modules.data_loader import load_uploaded_file, detect_column_types, generate_data_profile
-from modules.preprocessor import (
-    clean_time_series_data, perform_stationarity_tests,
-    engineer_time_series_features, split_time_series
-)
-from modules.model_selector import run_automl_suite, fit_predict_holt_winters
-from modules.model_evaluator import (
-    calculate_forecasting_metrics, analyze_residuals, compute_prediction_intervals
-)
-from modules.scenario_analyzer import simulate_what_if_scenario
-from modules.insight_generator import generate_ai_executive_summary
+warnings.filterwarnings("ignore")
+
+# Import Enterprise Modules
+from modules.synthetic_messy_data import generate_messy_enterprise_dataset
+from modules import data_loader as dl
+from modules import data_profiler as dp
+from modules import missing_handler as mh
+from modules import duplicate_handler as dh
+from modules import inconsistency_handler as ih
+from modules import outlier_detector as od
+from modules import feature_engineer as fe
+from modules import data_repair as dr
+from modules import pipeline_builder as pb
+from modules import report_generator as rg
+from modules import scheduler as sch
 from modules import chart_builder as cb
 from modules import novelty_features as nf
-from modules.filters import render_sidebar_controls
-from modules import exporters
+from modules import filters as flt
+from modules import exporters as exp
 from modules import ui_components as ui
-
-warnings.filterwarnings("ignore")
 
 # Inject Custom Glassmorphic Dark Theme Styling
 ui.inject_custom_css()
 
-
 def main():
     """Main Application Execution Routine."""
-
-    # ---------------------------------------------------------
-    # 1. Sidebar Data Import & Engine Setup
-    # ---------------------------------------------------------
-    st.sidebar.markdown("### 📁 Data Source Selection")
-
-    data_option = st.sidebar.radio(
-        "Select Data Source",
-        [
-            "⚡ Synthetic Demo Data (3+ Years Daily)",
-            "📤 Upload Custom Dataset (CSV, Excel, JSON)"
-        ],
-        key="sb_data_source"
-    )
-
-    df_raw = None
-
-    if data_option == "📤 Upload Custom Dataset (CSV, Excel, JSON)":
-        uploaded_file = st.sidebar.file_uploader(
-            "Upload Time-Series File",
-            type=["csv", "xlsx", "xls", "json"],
-            help="Supported formats: CSV, Excel (.xlsx, .xls), JSON"
-        )
-        if uploaded_file is not None:
-            with st.spinner("⏳ Parsing uploaded time-series dataset..."):
-                df_raw, upload_error = load_uploaded_file(uploaded_file)
-            if upload_error:
-                st.error(f"❌ {upload_error}")
-                st.stop()
-        else:
-            st.info("👆 Please upload a time-series dataset to proceed, or switch to Synthetic Demo Data.")
-            st.stop()
-    else:
-        scenario = st.sidebar.selectbox(
-            "Demo Scenario",
-            ["Sales Data", "Revenue Data", "Website Traffic"],
-            index=0
-        )
-        with st.spinner("⚡ Generating 3+ years realistic time-series dataset with seasonal & holiday dynamics..."):
-            df_raw = generate_synthetic_timeseries(scenario=scenario)
-
-    # ---------------------------------------------------------
-    # 2. Smart Column Detection & Preprocessing Engine
-    # ---------------------------------------------------------
-    detected_mappings = detect_column_types(df_raw)
-    ctrl = render_sidebar_controls(df_raw, detected_mappings)
-
-    date_col = ctrl["date_col"]
-    target_col = ctrl["target_col"]
-
-    # Automated Cleaning
-    df_clean, clean_meta = clean_time_series_data(
-        df_raw, date_col=date_col, target_col=target_col,
-        impute_method=ctrl["impute_method"],
-        outlier_method=ctrl["outlier_method"],
-        smooth_method=ctrl["smooth_method"]
-    )
-
-    # Feature Engineering
-    numeric_features = [c for c in df_clean.columns if c not in [date_col, target_col] and pd.api.types.is_numeric_dtype(df_clean[c])]
-    df_engineered = engineer_time_series_features(
-        df_clean, date_col=date_col, target_col=target_col,
-        numeric_features=numeric_features, max_lags=ctrl["max_lags"],
-        include_calendar=ctrl["include_calendar"], include_fourier=ctrl["include_fourier"]
-    )
-
-    # Train-Test Split
-    train_df, test_df = split_time_series(df_engineered, test_ratio=ctrl["test_split_ratio"])
-    feature_cols = [c for c in train_df.columns if c not in [date_col, target_col] and pd.api.types.is_numeric_dtype(train_df[c])]
-
-    # ---------------------------------------------------------
-    # 3. Model Execution & AutoML Engine
-    # ---------------------------------------------------------
-    with st.spinner("🧠 Executing Predictive AI Model Suite & AutoML Leaderboard..."):
-        automl_res = run_automl_suite(
-            train_df, test_df, date_col=date_col,
-            target_col=target_col, feature_cols=feature_cols
-        )
-
-    leaderboard = automl_res["leaderboard"]
-    best_model_name = automl_res["best_model_name"]
-    recommender_info = nf.recommend_optimal_model(leaderboard)
-
-    # Selected Model Prediction Logic
-    sel_model_str = ctrl["selected_model"]
-
-    if "AutoML" in sel_model_str:
-        active_model_name = best_model_name
-    elif "Ensemble" in sel_model_str:
-        active_model_name = "Ensemble (Top 3 Weighted)"
-    else:
-        active_model_name = sel_model_str
-
-    active_data = leaderboard.get(active_model_name, leaderboard.get(best_model_name))
-    y_test_actual = test_df[target_col].values
-    y_test_pred = active_data["forecast"]
-
-    # Compute Metrics & Confidence Bands
-    metrics = calculate_forecasting_metrics(y_test_actual, y_test_pred, train_df[target_col].values)
-    res_analysis = analyze_residuals(y_test_actual, y_test_pred)
-    lower_bound, upper_bound = compute_prediction_intervals(y_test_pred, res_analysis["std"], ctrl["confidence_level"])
-
-    # Future Forecast Horizon Simulation
-    future_dates = pd.date_range(start=df_clean[date_col].max() + pd.Timedelta(days=1), periods=ctrl["forecast_horizon"], freq="D")
-    future_forecast, _, _ = fit_predict_holt_winters(df_clean[target_col], ctrl["forecast_horizon"])
-    fut_lower, fut_upper = compute_prediction_intervals(future_forecast, res_analysis["std"], ctrl["confidence_level"])
-
-    # Novelty Elements Calculations
-    scenario_fc, scenario_summary = simulate_what_if_scenario(
-        y_test_pred,
-        marketing_change_pct=ctrl["marketing_change_pct"],
-        price_change_pct=ctrl["price_change_pct"],
-        competitor_impact_pct=ctrl["competitor_impact_pct"]
-    )
-    risk_info = nf.generate_risk_advised_forecast(y_test_pred, lower_bound, upper_bound)
-    anomalies_info = nf.monitor_prediction_anomalies(test_df[date_col], y_test_actual, y_test_pred)
-
-    ai_executive_summary = generate_ai_executive_summary(
-        target_col, active_model_name, metrics,
-        float(np.sum(y_test_pred)), float(np.sum(y_test_actual)),
-        risk_info, anomalies_info["anomaly_count"]
-    )
-
-    # ---------------------------------------------------------
-    # 4. Header Banner & Onboarding Tour
-    # ---------------------------------------------------------
     ui.render_header_banner()
     ui.render_onboarding_tour()
-    ui.render_help_sidebar()
+
+    # Session State Initialization
+    if "lineage_tracker" not in st.session_state:
+        st.session_state.lineage_tracker = nf.DataLineageTracker()
+
+    if "df_raw" not in st.session_state:
+        st.session_state.df_raw = generate_messy_enterprise_dataset("Customer CRM & Sales", 250)
+        st.session_state.lineage_tracker.record_step("Loaded Initial Synthetic Dataset", st.session_state.df_raw)
+
+    if "df_clean" not in st.session_state:
+        st.session_state.df_clean = st.session_state.df_raw.copy()
+
+    if "workflow_step" not in st.session_state:
+        st.session_state.workflow_step = 1
+
+    if "pipeline_steps" not in st.session_state:
+        st.session_state.pipeline_steps = pb.DEFAULT_PIPELINE_PRESET
+
+    # Mode Selector in Sidebar
+    app_mode = st.sidebar.radio("🧭 Navigation Mode", ["🧙 Guided 8-Step User Workflow", "📊 Comprehensive Multi-Tab Studio"], index=0)
+
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 📁 Data Source Selection")
+    source_type = st.sidebar.selectbox(
+        "Select Data Source",
+        [
+            "⚡ Synthetic Messy Dataset (Demo)",
+            "📤 Single / Batch File Upload",
+            "🗂️ Folder Monitoring Watcher",
+            "🗄️ Database Integration (SQL / MongoDB)",
+            "☁️ Cloud Storage (Google Sheets / S3 / Azure)",
+            "🌐 REST API & Web Ingestion"
+        ]
+    )
+
+    if source_type == "⚡ Synthetic Messy Dataset (Demo)":
+        domain = st.sidebar.selectbox("Demo Domain Scenario", ["Customer CRM & Sales", "Financial Transactions", "HR & Employee Records"])
+        rows = st.sidebar.slider("Row Count", 50, 1000, 250)
+        if st.sidebar.button("🔄 Generate Fresh Dataset", use_container_width=True):
+            st.session_state.df_raw = generate_messy_enterprise_dataset(domain, rows)
+            st.session_state.df_clean = st.session_state.df_raw.copy()
+            st.session_state.lineage_tracker = nf.DataLineageTracker()
+            st.session_state.lineage_tracker.record_step(f"Generated {domain}", st.session_state.df_raw)
+            st.toast("⚡ Fresh synthetic dataset generated!", icon="✅")
+
+    elif source_type == "📤 Single / Batch File Upload":
+        uploaded_files = st.sidebar.file_uploader(
+            "Upload Files (CSV, XLSX, XLS, JSON, XML, Parquet, Feather)",
+            type=["csv", "xlsx", "xls", "json", "xml", "parquet", "feather"],
+            accept_multiple_files=True
+        )
+        if uploaded_files and st.sidebar.button("📥 Load Uploaded Files", use_container_width=True):
+            combined_df, err = dl.load_batch_files(uploaded_files)
+            if err:
+                st.sidebar.error(err)
+            elif combined_df is not None:
+                st.session_state.df_raw = combined_df
+                st.session_state.df_clean = combined_df.copy()
+                st.session_state.lineage_tracker = nf.DataLineageTracker()
+                st.session_state.lineage_tracker.record_step("Uploaded Batch Files", combined_df)
+                st.toast(f"✅ Loaded {len(combined_df)} records!", icon="🎉")
+
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🧹 Quick Operations")
+    if st.sidebar.button("🚀 One-Click Auto-Clean", use_container_width=True):
+        cleaned_df, logs, impact = pb.execute_pipeline(st.session_state.df_raw, st.session_state.pipeline_steps)
+        st.session_state.df_clean = cleaned_df
+        st.session_state.lineage_tracker.record_step("Auto-Cleaned Dataset", cleaned_df, impact)
+        st.toast(f"🎉 Dataset Cleaned! Quality Score improved by +{impact.get('score_improvement', 0)} points.", icon="✨")
+
+    if st.sidebar.button("↺ Reset Dataset to Original", use_container_width=True):
+        st.session_state.df_clean = st.session_state.df_raw.copy()
+        st.session_state.lineage_tracker = nf.DataLineageTracker()
+        st.session_state.lineage_tracker.record_step("Reset to Raw State", st.session_state.df_raw)
+        st.toast("Reset to original raw dataset.", icon="🔄")
+
+    # Generate Profile for Current Working Data
+    profile_raw = dp.generate_comprehensive_profile(st.session_state.df_raw)
+    profile_clean = dp.generate_comprehensive_profile(st.session_state.df_clean)
 
     # ---------------------------------------------------------
-    # 5. Application Tabs (6 Business-Ready Modules)
+    # MODE 1: Guided 8-Step User Workflow (Wizard Mode)
     # ---------------------------------------------------------
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "🚀 Executive Summary & AutoML",
-        "📈 Forecast Studio & What-If Simulator",
-        "🔍 Residual Diagnostics & Stationarity",
-        "🧠 Explainable AI & Feature Drivers",
-        "🌐 Multi-Variate & Budget Variance",
-        "📥 Export Studio & REST API"
-    ])
+    if app_mode == "🧙 Guided 8-Step User Workflow":
+        ui.render_step_progress(st.session_state.workflow_step)
 
-    # =========================================================
-    # TAB 1: EXECUTIVE SUMMARY & AUTOML LEADERBOARD
-    # =========================================================
-    with tab1:
-        st.markdown("#### 🚀 Executive KPI Performance Cards")
-        k_col1, k_col2, k_col3, k_col4, k_col5, k_col6 = st.columns(6)
+        # STEP 1: Upload Data or Connect Source
+        if st.session_state.workflow_step == 1:
+            st.markdown("### 📥 Step 1: Upload Data or Connect Source")
+            st.info("Select a data source in the sidebar or preview the current active dataset below:")
+            st.dataframe(st.session_state.df_raw.head(20), use_container_width=True)
+            col_next, _ = st.columns([1, 4])
+            with col_next:
+                if st.button("Proceed to Step 2: Auto-Profile ➡️", use_container_width=True):
+                    st.session_state.workflow_step = 2
+                    st.rerun()
 
-        with k_col1:
-            ui.render_kpi_card("Total Observations", f"{len(df_clean):,}", icon="📊")
-        with k_col2:
-            ui.render_kpi_card("Forecasted Sum", f"${np.sum(y_test_pred):,.2f}", icon="💰")
-        with k_col3:
-            ui.render_kpi_card("Active Model", active_model_name, icon="🤖")
-        with k_col4:
-            ui.render_kpi_card("RMSE Error", f"{metrics['rmse']:,.2f}", icon="🎯")
-        with k_col5:
-            ui.render_kpi_card("MAE Error", f"{metrics['mae']:,.2f}", icon="📉")
-        with k_col6:
-            ui.render_kpi_card("MAPE Accuracy", f"{metrics['mape']:.2f}%", icon="⭐")
+        # STEP 2: Auto-Profiles Data & Quality Score
+        elif st.session_state.workflow_step == 2:
+            st.markdown("### 📊 Step 2: Automated Quality Profiling & Health Scorecard")
+            scorecard = profile_clean.get("scorecard", {})
+            st.plotly_chart(cb.build_quality_scorecard_gauges(scorecard), use_container_width=True)
+            
+            c1, c2 = st.columns(2)
+            with c1:
+                st.markdown("#### Missing Values Heatmap")
+                st.plotly_chart(cb.build_missing_values_heatmap(st.session_state.df_raw), use_container_width=True)
+            with c2:
+                st.markdown("#### Outlier Distribution")
+                st.plotly_chart(cb.build_outlier_boxplots(st.session_state.df_raw), use_container_width=True)
 
-        st.markdown("<br>", unsafe_allow_html=True)
+            col_prev, col_next = st.columns([1, 1])
+            with col_prev:
+                if st.button("⬅️ Back to Step 1", use_container_width=True):
+                    st.session_state.workflow_step = 1
+                    st.rerun()
+            with col_next:
+                if st.button("Proceed to Step 3: Select Strategy ➡️", use_container_width=True):
+                    st.session_state.workflow_step = 3
+                    st.rerun()
 
-        st.markdown(
-            f"""
-            <div style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(59, 130, 246, 0.1)); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 12px; padding: 1.2rem; margin-bottom: 1.5rem;">
-                {ai_executive_summary}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-        r1_col1, r1_col2 = st.columns([1, 1])
-        with r1_col1:
-            st.markdown("##### 🏆 AutoML Model Performance Leaderboard")
-            lead_df = pd.DataFrame([
-                {"Model": m, "RMSE": v["rmse"], "MAE": v["mae"], "MAPE (%)": v["mape"]}
-                for m, v in leaderboard.items()
-            ]).sort_values(by="RMSE").reset_index(drop=True)
-            st.dataframe(lead_df.style.highlight_min(axis=0, color="#1E3A8A"), use_container_width=True)
-
-            st.info(f"💡 **Recommender Engine Verdict**: {recommender_info['reason']}")
-
-        with r1_col2:
-            fig_comp = cb.build_model_comparison_chart(leaderboard)
-            cb.render_plotly_chart(fig_comp, key="chart_leaderboard_comp")
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        r2_col1, r2_col2 = st.columns([1, 1])
-        with r2_col1:
-            fig_overlay = cb.build_actual_vs_predicted_chart(
-                test_df[date_col], y_test_actual, y_test_pred,
-                lower_bound, upper_bound,
-                title=f"Actual vs Predicted ({active_model_name})"
-            )
-            cb.render_plotly_chart(fig_overlay, key="chart_tab1_overlay")
-        with r2_col2:
-            fig_horizon = cb.build_forecast_horizon_chart(
-                df_clean[date_col], df_clean[target_col].values,
-                future_dates, future_forecast,
-                fut_lower, fut_upper
-            )
-            cb.render_plotly_chart(fig_horizon, key="chart_tab1_horizon")
-
-    # =========================================================
-    # TAB 2: FORECAST STUDIO & WHAT-IF SIMULATOR
-    # =========================================================
-    with tab2:
-        st.markdown("#### 📈 Interactive What-If Business Scenario Simulator")
-
-        scen_col1, scen_col2 = st.columns([1, 2])
-        with scen_col1:
-            st.markdown(
-                f"""
-                <div class="glass-card" style="margin-bottom: 1rem;">
-                    <h4 style="color: #10B981; margin-top: 0;">🔮 What-If Scenario Impact</h4>
-                    <p><b>Baseline Forecast Total</b>: ${scenario_summary['base_total']:,.2f}</p>
-                    <p><b>Simulated Forecast Total</b>: ${scenario_summary['simulated_total']:,.2f}</p>
-                    <p><b>Net Financial Delta</b>: <span style="color: {'#10B981' if scenario_summary['net_delta'] >= 0 else '#EF4444'}; font-weight: 700;">${scenario_summary['net_delta']:,.2f} ({scenario_summary['pct_change']}%)</span></p>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-            st.markdown(
-                f"""
-                <div class="glass-card">
-                    <h4 style="color: #3B82F6; margin-top: 0;">🛡️ Risk-Advised Decision Support</h4>
-                    <p><b>Risk Rating</b>: {risk_info['risk_level']}</p>
-                    <p><b>P10 Conservative Total</b>: ${risk_info['p10_conservative_total']:,.2f}</p>
-                    <p><b>P50 Expected Total</b>: ${risk_info['p50_expected_total']:,.2f}</p>
-                    <p><b>P90 Optimistic Total</b>: ${risk_info['p90_optimistic_total']:,.2f}</p>
-                    <p style="font-size: 0.85rem; color: #94A3B8;"><b>Strategic Advice</b>: {risk_info['advice']}</p>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-        with scen_col2:
-            fig_sim = cb.build_scenario_simulation_chart(test_df[date_col], y_test_pred, scenario_fc)
-            cb.render_plotly_chart(fig_sim, key="chart_what_if_sim")
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        st.markdown("#### 🚨 Prediction Anomaly Monitor (Real-Time Deviations)")
-        if anomalies_info["anomalies"]:
-            st.dataframe(pd.DataFrame(anomalies_info["anomalies"]), use_container_width=True)
-        else:
-            st.success("✅ No prediction anomalies detected exceeding tolerance threshold.")
-
-    # =========================================================
-    # TAB 3: RESIDUAL DIAGNOSTICS & STATIONARITY
-    # =========================================================
-    with tab3:
-        st.markdown("#### 🔍 Time-Series Diagnostics & Residual Analysis")
-
-        stationarity_res = perform_stationarity_tests(df_clean[target_col])
-        st.info(f"📊 **Stationarity Assessment**: {stationarity_res['verdict']} (ADF p-value: {stationarity_res['adf']['p_value']:.4f}, KPSS p-value: {stationarity_res['kpss']['p_value']:.4f})")
-
-        fig_res_dash = cb.build_residual_analysis_dashboard(res_analysis["residuals"])
-        cb.render_plotly_chart(fig_res_dash, key="chart_res_dash")
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        d_col1, d_col2 = st.columns([1, 1])
-        with d_col1:
-            fig_rf = cb.build_residual_vs_fitted_chart(y_test_pred, res_analysis["residuals"])
-            cb.render_plotly_chart(fig_rf, key="chart_rf")
-
-            fig_acf = cb.build_acf_pacf_chart(res_analysis["acf"], res_analysis["pacf"])
-            cb.render_plotly_chart(fig_acf, key="chart_acf")
-
-        with d_col2:
-            fig_qq = cb.build_qq_plot(res_analysis["qq_theoretical"], res_analysis["qq_sample"])
-            cb.render_plotly_chart(fig_qq, key="chart_qq")
-
-            fig_decomp = cb.build_seasonal_decomposition_chart(df_clean[target_col])
-            cb.render_plotly_chart(fig_decomp, key="chart_decomp")
-
-    # =========================================================
-    # TAB 4: EXPLAINABLE AI & FEATURE DRIVERS
-    # =========================================================
-    with tab4:
-        st.markdown("#### 🧠 Explainable AI Dashboard & External Impact Analysis")
-
-        feature_drivers = nf.generate_feature_importance_breakdown(active_model_name, feature_cols, train_df, target_col)
-
-        e_col1, e_col2 = st.columns([1, 1])
-        with e_col1:
-            fig_fi = cb.build_feature_importance_chart(feature_drivers)
-            cb.render_plotly_chart(fig_fi, key="chart_fi")
-        with e_col2:
-            fig_shap = cb.build_shap_explainability_chart(feature_drivers)
-            cb.render_plotly_chart(fig_shap, key="chart_shap")
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        st.markdown("##### 🌐 External Variable Impact Analyzer")
-        ext_impacts = nf.analyze_external_variable_impact(df_clean, target_col, numeric_features)
-        if ext_impacts:
-            st.dataframe(pd.DataFrame(ext_impacts), use_container_width=True)
-        else:
-            st.info("No external regressor variables present in dataset.")
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        st.markdown("##### 🔄 Adaptive Learning & Model Drift Detector")
-        drift_info = nf.detect_model_drift(y_test_actual, y_test_pred, baseline_mape=metrics["mape"])
-        st.markdown(
-            f"""
-            <div class="glass-card">
-                <h5 style="margin:0; color: {'#EF4444' if drift_info['retrain_needed'] else '#10B981'};">{drift_info['drift_status']}</h5>
-                <p style="margin: 0.4rem 0 0 0; color: #CBD5E1;">
-                    Current Test MAPE: <b>{drift_info['current_mape']}%</b> | Baseline MAPE: <b>{drift_info['baseline_mape']}%</b> | Performance Shift: <b>{drift_info['degradation_pct']}%</b>
-                </p>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    # =========================================================
-    # TAB 5: MULTI-VARIATE & BUDGET VARIANCE
-    # =========================================================
-    with tab5:
-        st.markdown("#### 🌐 Multi-Variate Forecasting & Budget Target Variance")
-
-        b_col1, b_col2 = st.columns([1, 1])
-        with b_col1:
-            budget_res = nf.calculate_budget_variance(y_test_pred, ctrl["budget_target"])
-            st.markdown(
-                f"""
-                <div class="glass-card">
-                    <h4 style="color: {budget_res['color']}; margin-top: 0;">🎯 Budget Target Variance Analysis</h4>
-                    <p><b>Forecast Total</b>: ${budget_res['forecast_total']:,.2f}</p>
-                    <p><b>Budget Target</b>: ${budget_res['budget_target']:,.2f}</p>
-                    <p><b>Variance Amount</b>: <span style="color: {budget_res['color']}; font-weight: 700;">${budget_res['variance_amount']:,.2f} ({budget_res['variance_pct']}%)</span></p>
-                    <p><b>Variance Status</b>: {budget_res['status']}</p>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-        with b_col2:
-            fig_roll = cb.build_rolling_forecast_chart(y_test_actual, y_test_pred)
-            cb.render_plotly_chart(fig_roll, key="chart_roll_val")
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        st.markdown("##### 🔮 Multi-Target Forecast Predictions")
-        multi_targets = [c for c in ["Sales_Units", "Revenue_USD", "Units_Sold", "Profit_USD", target_col] if c in df_clean.columns]
-        if len(multi_targets) > 1:
-            multi_res = nf.run_multi_target_forecast(train_df, test_df, list(set(multi_targets)))
-            multi_df = pd.DataFrame([
-                {"Target Column": k, "Forecast Total": v["total_predicted"], "Mean / Step": v["mean_predicted"], "Test RMSE": v["rmse"]}
-                for k, v in multi_res.items()
+        # STEP 3: Select Cleaning Strategy
+        elif st.session_state.workflow_step == 3:
+            st.markdown("### 🧹 Step 3: Select Cleaning Strategy")
+            strat_choice = st.radio("Choose Cleaning Approach", [
+                "⚡ Auto-Clean (Recommended One-Click Automation)",
+                "🛠️ Manual Customization (Specify custom rules per feature)",
+                " Visual Pipeline Workflow (Drag-and-Drop sequence)"
             ])
-            st.dataframe(multi_df, use_container_width=True)
 
-        st.markdown("<br>", unsafe_allow_html=True)
+            if strat_choice == "⚡ Auto-Clean (Recommended One-Click Automation)":
+                if st.button("🚀 Apply Recommended Auto-Clean", use_container_width=True):
+                    cleaned_df, logs, impact = pb.execute_pipeline(st.session_state.df_raw, st.session_state.pipeline_steps)
+                    st.session_state.df_clean = cleaned_df
+                    st.session_state.lineage_tracker.record_step("Guided Auto-Clean", cleaned_df, impact)
+                    st.session_state.workflow_step = 4
+                    st.rerun()
 
-        fig_heat = cb.build_prediction_error_heatmap(y_test_actual, y_test_pred)
-        cb.render_plotly_chart(fig_heat, key="chart_tab5_heatmap")
+            elif strat_choice == "🛠️ Manual Customization (Specify custom rules per feature)":
+                c1, c2 = st.columns(2)
+                with c1:
+                    imp_strat = st.selectbox("Missing Value Strategy", ["Auto-Select", "KNN Imputation", "Mean Imputation", "Median Imputation"])
+                    casing_strat = st.selectbox("Text Casing", ["Title Case", "Upper Case", "Lower Case"])
+                with c2:
+                    out_strat = st.selectbox("Outlier Handling", ["IQR Method", "Z-Score Method", "Isolation Forest"])
+                    dupe_strat = st.selectbox("Deduplication", ["Exact Duplicates", "Fuzzy Record Linkage"])
 
-    # =========================================================
-    # TAB 6: EXPORT STUDIO & REST API
-    # =========================================================
-    with tab6:
-        st.markdown("#### 📥 Enterprise Export Studio & Integration APIs")
+                if st.button("✨ Apply Custom Cleaning Settings", use_container_width=True):
+                    df_c, m1 = mh.handle_missing_values(st.session_state.df_raw, strategy=imp_strat)
+                    df_c, m2 = dh.handle_duplicates(df_c, method=dupe_strat)
+                    df_c, m3 = ih.handle_inconsistencies(df_c, text_case=casing_strat)
+                    df_c, m4 = od.detect_and_handle_outliers(df_c, method=out_strat)
+                    st.session_state.df_clean = df_c
+                    st.session_state.lineage_tracker.record_step("Guided Manual Cleaning", df_c)
+                    st.session_state.workflow_step = 4
+                    st.rerun()
 
-        ex_col1, ex_col2, ex_col3 = st.columns(3)
+            col_prev, col_next = st.columns([1, 1])
+            with col_prev:
+                if st.button("⬅️ Back to Step 2", use_container_width=True):
+                    st.session_state.workflow_step = 2
+                    st.rerun()
+            with col_next:
+                if st.button("Proceed to Step 4: Review Comparison ➡️", use_container_width=True):
+                    st.session_state.workflow_step = 4
+                    st.rerun()
 
-        with ex_col1:
-            st.markdown("##### 📄 Download CSV Predictions")
-            csv_data = exporters.generate_forecast_csv(
-                test_df[date_col], y_test_actual, y_test_pred,
-                lower_bound, upper_bound, active_model_name
+        # STEP 4: Before/After Comparison
+        elif st.session_state.workflow_step == 4:
+            st.markdown("### 📈 Step 4: Before vs After Cleaning Impact")
+            
+            imp_metrics = {
+                "initial_missing": int(st.session_state.df_raw.isna().sum().sum()),
+                "final_missing": int(st.session_state.df_clean.isna().sum().sum()),
+                "initial_dupes": int(st.session_state.df_raw.duplicated().sum()),
+                "final_dupes": int(st.session_state.df_clean.duplicated().sum()),
+                "initial_score": profile_raw["scorecard"]["overall_score"],
+                "final_score": profile_clean["scorecard"]["overall_score"]
+            }
+            st.plotly_chart(cb.build_cleaning_impact_chart(imp_metrics), use_container_width=True)
+
+            col_prev, col_next = st.columns([1, 1])
+            with col_prev:
+                if st.button("⬅️ Back to Step 3", use_container_width=True):
+                    st.session_state.workflow_step = 3
+                    st.rerun()
+            with col_next:
+                if st.button("Proceed to Step 5: Verify Results ➡️", use_container_width=True):
+                    st.session_state.workflow_step = 5
+                    st.rerun()
+
+        # STEP 5: Verify Results
+        elif st.session_state.workflow_step == 5:
+            st.markdown("### 🔍 Step 5: Review & Adjust Cleaned Results")
+            st.markdown("#### Cleaned Dataset Preview")
+            st.dataframe(st.session_state.df_clean, use_container_width=True)
+            
+            st.markdown("#### Audit Trail Log")
+            st.dataframe(st.session_state.lineage_tracker.get_audit_trail_df(), use_container_width=True)
+
+            col_prev, col_next = st.columns([1, 1])
+            with col_prev:
+                if st.button("⬅️ Back to Step 4", use_container_width=True):
+                    st.session_state.workflow_step = 4
+                    st.rerun()
+            with col_next:
+                if st.button("Proceed to Step 6: Select Report ➡️", use_container_width=True):
+                    st.session_state.workflow_step = 6
+                    st.rerun()
+
+        # STEP 6: Select Report Type & Format
+        elif st.session_state.workflow_step == 6:
+            st.markdown("### 📄 Step 6: Select Report Type & Output Format")
+            c1, c2 = st.columns(2)
+            with c1:
+                rep_type = st.selectbox("Report Content Type", ["Executive Dashboard (Leadership)", "Technical Cleaning Log", "Comparative Before/After Report"])
+            with c2:
+                rep_format = st.selectbox("Output File Format", ["PDF", "Excel Workbook", "HTML", "JSON Metadata"])
+
+            st.session_state.selected_rep_format = rep_format
+
+            col_prev, col_next = st.columns([1, 1])
+            with col_prev:
+                if st.button("⬅️ Back to Step 5", use_container_width=True):
+                    st.session_state.workflow_step = 5
+                    st.rerun()
+            with col_next:
+                if st.button("Proceed to Step 7: Export Report ➡️", use_container_width=True):
+                    st.session_state.workflow_step = 7
+                    st.rerun()
+
+        # STEP 7: Export Report
+        elif st.session_state.workflow_step == 7:
+            st.markdown("### 💾 Step 7: Generate & Download Report")
+            rep_fmt = st.session_state.get("selected_rep_format", "PDF")
+            audit_df = st.session_state.lineage_tracker.get_audit_trail_df()
+            data_dict_df = nf.generate_smart_metadata_dictionary(st.session_state.df_clean)
+
+            rep_bytes, rep_fname, rep_mime = exp.export_report_bytes(
+                st.session_state.df_clean, profile_clean, audit_df, data_dict_df, rep_fmt
             )
             st.download_button(
-                label="📥 Download Forecast CSV",
-                data=csv_data,
-                file_name=f"thiranex_forecast_{target_col}.csv",
-                mime="text/csv"
+                label=f"📄 Download Generated {rep_fmt} Report",
+                data=rep_bytes,
+                file_name=rep_fname,
+                mime=rep_mime,
+                use_container_width=True
             )
 
-        with ex_col2:
-            st.markdown("##### 📑 Executive PDF Report")
-            if st.button("⚡ Generate ReportLab Executive PDF"):
-                with st.spinner("Generating Executive PDF Briefing..."):
-                    pdf_data = exporters.generate_executive_pdf_report(
-                        target_col, active_model_name, metrics,
-                        leaderboard, risk_info, ai_executive_summary
-                    )
-                st.download_button(
-                    label="📥 Download Executive PDF Report",
-                    data=pdf_data,
-                    file_name=f"Thiranex_Executive_Predictive_Report.pdf",
-                    mime="application/pdf"
-                )
+            col_prev, col_next = st.columns([1, 1])
+            with col_prev:
+                if st.button("⬅️ Back to Step 6", use_container_width=True):
+                    st.session_state.workflow_step = 6
+                    st.rerun()
+            with col_next:
+                if st.button("Proceed to Step 8: Automation ➡️", use_container_width=True):
+                    st.session_state.workflow_step = 8
+                    st.rerun()
 
-        with ex_col3:
-            st.markdown("##### 🌐 REST API Response Endpoint")
-            api_json = exporters.generate_forecast_json_api(
-                target_col, active_model_name, metrics, y_test_pred, risk_info
+        # STEP 8: Automated Scheduling & Alerts
+        elif st.session_state.workflow_step == 8:
+            st.markdown("### ⏰ Step 8: Schedule Automated Future Runs")
+            c1, c2 = st.columns(2)
+            with c1:
+                job_title = st.text_input("Scheduled Job Title", value="Daily Customer CRM ETL Clean")
+                freq = st.selectbox("Schedule Frequency", ["Daily (00:00 UTC)", "Weekly (Monday 06:00)", "Monthly (1st of Month)"])
+            with c2:
+                watch_dir = st.text_input("Watch Folder Directory Path", value="./data_inbox")
+                st_alert = st.checkbox("Send Stakeholder Email Alerts on Quality Drops", value=True)
+
+            if st.button("⏰ Save & Activate Scheduled Automation Job", use_container_width=True):
+                job_meta = sch.create_scheduled_job(job_title, freq, st.session_state.pipeline_steps)
+                st.success(f"Job '{job_title}' successfully activated! Job ID: {job_meta['job_id']}")
+                st.info("The background engine will auto-process incoming data files and trigger email notifications.")
+
+            if st.button("↺ Start New Workflow Run", use_container_width=True):
+                st.session_state.workflow_step = 1
+                st.rerun()
+
+    # ---------------------------------------------------------
+    # MODE 2: Comprehensive Multi-Tab Studio
+    # ---------------------------------------------------------
+    else:
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+            "📁 Data Overview",
+            "📊 Quality Scorecard & Profiling",
+            "🧹 Cleaning Studio",
+            "⚡ Visual Pipeline Automation",
+            "🤖 AI Novelty Suite",
+            "📄 Multi-Format Reporting"
+        ])
+
+        with tab1:
+            st.markdown("### 📋 Active Dataset Summary & Raw Preview")
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Total Rows", f"{len(st.session_state.df_clean):,}")
+            c2.metric("Total Columns", f"{len(st.session_state.df_clean.columns):,}")
+            c3.metric("Memory Usage", f"{profile_clean['structure']['memory_kb']} KB")
+            c4.metric("Data Health Score", f"{profile_clean['scorecard']['overall_score']} / 100", delta=f"{profile_clean['scorecard']['badge']}")
+            st.dataframe(st.session_state.df_clean, use_container_width=True)
+
+        with tab2:
+            st.markdown("### 📊 Enterprise Data Quality Scorecard")
+            scorecard = profile_clean.get("scorecard", {})
+            st.plotly_chart(cb.build_quality_scorecard_gauges(scorecard), use_container_width=True)
+            st.plotly_chart(cb.build_missing_values_heatmap(st.session_state.df_raw, st.session_state.df_clean), use_container_width=True)
+
+        with tab3:
+            st.markdown("### 🧹 Intelligent Data Cleaning Studio")
+            c1, c2 = st.columns(2)
+            with c1:
+                imp_mode = st.selectbox("Imputation Strategy", ["Auto-Select", "KNN Imputation", "Random Forest ML Imputation", "Mean Imputation", "Median Imputation"])
+            with c2:
+                if st.button("Apply Imputation Strategy", use_container_width=True):
+                    df_res, meta = mh.handle_missing_values(st.session_state.df_clean, strategy=imp_mode)
+                    st.session_state.df_clean = df_res
+                    st.session_state.lineage_tracker.record_step(f"Imputed ({imp_mode})", df_res)
+                    st.rerun()
+
+        with tab4:
+            st.markdown("### ⚡ Visual Pipeline Builder")
+            st.dataframe(pd.DataFrame(st.session_state.pipeline_steps), use_container_width=True)
+            if st.button("▶️ Execute Visual ETL Pipeline", use_container_width=True):
+                cleaned_df, logs, impact = pb.execute_pipeline(st.session_state.df_raw, st.session_state.pipeline_steps)
+                st.session_state.df_clean = cleaned_df
+                st.session_state.lineage_tracker.record_step("Executed Visual ETL Pipeline", cleaned_df, impact)
+                st.success("Visual ETL Pipeline finished!")
+
+        with tab5:
+            st.markdown("### 🤖 Novel AI Features Suite")
+            nl_q = st.text_input("Talk to Your Data (Plain English)", value="show annual spend > 5000")
+            if st.button("Query Data", use_container_width=True):
+                res, msg = nf.talk_to_your_data_query(st.session_state.df_clean, nl_q)
+                st.info(msg)
+                st.dataframe(res, use_container_width=True)
+
+        with tab6:
+            st.markdown("### 📄 Multi-Format Reporting & Export Studio")
+            r_fmt = st.selectbox("Report Format", ["PDF", "Excel Workbook", "HTML", "JSON Metadata"])
+            audit_df = st.session_state.lineage_tracker.get_audit_trail_df()
+            data_dict_df = nf.generate_smart_metadata_dictionary(st.session_state.df_clean)
+            rep_bytes, rep_fname, rep_mime = exp.export_report_bytes(
+                st.session_state.df_clean, profile_clean, audit_df, data_dict_df, r_fmt
             )
-            st.download_button(
-                label="📥 Download REST API JSON Payload",
-                data=api_json,
-                file_name=f"forecast_api_payload.json",
-                mime="application/json"
-            )
+            st.download_button(label=f"📄 Download {r_fmt} Report", data=rep_bytes, file_name=rep_fname, mime=rep_mime, use_container_width=True)
 
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        st.markdown("##### 💻 Programmatic REST API JSON Preview")
-        st.code(api_json, language="json")
-
-    # Render Footer
     ui.render_footer()
-
 
 if __name__ == "__main__":
     main()

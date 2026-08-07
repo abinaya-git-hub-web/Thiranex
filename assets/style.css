@@ -1,4 +1,4 @@
-/* Custom Glassmorphism Dark Theme Styling for Thiranex Solutions */
+/* Custom Glassmorphism Dark/Light Theme Styling for Thiranex Solutions */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 html, body, [class*="css"] {
@@ -11,7 +11,7 @@ html, body, [class*="css"] {
 }
 
 [data-testid="stSidebar"] {
-    background: rgba(15, 23, 42, 0.75) !important;
+    background: rgba(15, 23, 42, 0.85) !important;
     backdrop-filter: blur(16px) !important;
     -webkit-backdrop-filter: blur(16px) !important;
     border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
@@ -26,6 +26,7 @@ html, body, [class*="css"] {
     padding: 1.2rem;
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
     transition: transform 0.25s ease, border-color 0.25s ease;
+    margin-bottom: 1rem;
 }
 
 .glass-card:hover {
@@ -33,13 +34,20 @@ html, body, [class*="css"] {
     border-color: rgba(139, 92, 246, 0.4);
 }
 
-.metric-icon {
-    font-size: 1.8rem;
-    margin-bottom: 0.4rem;
+.metric-card-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
 }
 
 .metric-label {
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -47,18 +55,43 @@ html, body, [class*="css"] {
 }
 
 .metric-value {
-    font-size: 1.65rem;
+    font-size: 1.8rem;
     font-weight: 800;
-    background: linear-gradient(135deg, #FFFFFF 0%, #E2E8F0 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: #F8FAFC;
     margin-top: 0.2rem;
 }
 
-.metric-delta {
+.status-badge-good {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 16px;
     font-size: 0.78rem;
-    font-weight: 600;
-    margin-top: 0.3rem;
+    font-weight: 700;
+    background: rgba(16, 185, 129, 0.2);
+    color: #10B981;
+    border: 1px solid #10B981;
+}
+
+.status-badge-warning {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: rgba(245, 158, 11, 0.2);
+    color: #F59E0B;
+    border: 1px solid #F59E0B;
+}
+
+.status-badge-critical {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: rgba(239, 68, 68, 0.2);
+    color: #EF4444;
+    border: 1px solid #EF4444;
 }
 
 .stTabs [data-baseweb="tab-list"] {
@@ -71,7 +104,6 @@ html, body, [class*="css"] {
 
 .stTabs [data-baseweb="tab"] {
     height: 44px;
-    white-space: pre;
     border-radius: 8px;
     color: #94A3B8;
     font-weight: 500;
@@ -92,7 +124,7 @@ html, body, [class*="css"] {
     color: white;
     border: none;
     border-radius: 10px;
-    padding: 0.6rem 1.2rem;
+    padding: 0.5rem 1.2rem;
     font-weight: 600;
     box-shadow: 0 4px 14px rgba(139, 92, 246, 0.35);
     transition: all 0.2s ease;
