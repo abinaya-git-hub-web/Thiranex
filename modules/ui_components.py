@@ -1,7 +1,7 @@
 """
 =============================================================================
 Thiranex Solutions — Modular UI Component Library
-Author: Google Deepmind Agentic AI Team
+Royal Purple Theme Edition
 =============================================================================
 """
 
@@ -9,7 +9,7 @@ import streamlit as st
 import os
 
 def inject_custom_css():
-    """Injects custom glassmorphism stylesheet."""
+    """Injects custom Royal Purple stylesheet."""
     css_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "style.css")
     if os.path.exists(css_path):
         with open(css_path, "r", encoding="utf-8") as f:
@@ -17,43 +17,43 @@ def inject_custom_css():
     else:
         st.markdown("""
         <style>
-            .stApp { background: #0F172A; color: #F8FAFC; }
+            .stApp { background: #F8F7FC; color: #1F1B2D; }
         </style>
         """, unsafe_allow_html=True)
 
 def render_header_banner():
-    """Renders top hero header banner with Thiranex Solutions branding."""
+    """Renders top hero header banner with Thiranex Solutions Royal Purple branding."""
     st.markdown("""
     <div style="
-        background: linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(139,92,246,0.15) 100%);
-        border: 1px solid rgba(139,92,246,0.3);
+        background: linear-gradient(135deg, rgba(109, 40, 217, 0.08) 0%, rgba(124, 58, 237, 0.04) 100%);
+        border: 1px solid #E5E0F0;
         border-radius: 16px;
         padding: 1.5rem 2rem;
         margin-bottom: 1.2rem;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        box-shadow: 0 4px 20px rgba(109, 40, 217, 0.05);
     ">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
             <div>
-                <div style="font-size: 0.85rem; font-weight: 700; color: #8B5CF6; letter-spacing: 0.1em; text-transform: uppercase;">
+                <div style="font-size: 0.85rem; font-weight: 700; color: #6D28D9; letter-spacing: 0.1em; text-transform: uppercase;">
                     ⚡ THIRANEX SOLUTIONS ENTERPRISE SUITE
                 </div>
-                <div style="font-size: 2rem; font-weight: 800; color: #FFFFFF; margin-top: 0.2rem;">
+                <div style="font-size: 2rem; font-weight: 800; color: #1F1B2D; margin-top: 0.2rem; letter-spacing: -0.02em;">
                     Data Cleaning & Reporting Automation Platform
                 </div>
-                <div style="font-size: 0.95rem; color: #94A3B8; margin-top: 0.3rem;">
+                <div style="font-size: 0.95rem; color: #6B6478; margin-top: 0.3rem;">
                     Autonomous ETL Engine • Quality Profiling • AI Imputation • Multi-Format Reporting (PDF, Excel, HTML)
                 </div>
             </div>
             <div style="text-align: right; margin-top: 0.5rem;">
-                <span class="status-badge-good">LIVE PRODUCTION ENGINE</span>
-                <div style="font-size: 0.75rem; color: #64748B; margin-top: 0.4rem;">v2.5.0 Enterprise</div>
+                <span class="status-badge-primary">LIVE PRODUCTION ENGINE</span>
+                <div style="font-size: 0.75rem; color: #6B6478; margin-top: 0.4rem; font-weight: 500;">v2.5.0 Enterprise</div>
             </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
 def render_step_progress(current_step: int):
-    """Renders visual 8-step workflow progress bar."""
+    """Renders visual 8-step workflow progress bar with Royal Purple theme."""
     steps = [
         "1. Ingest", "2. Profile", "3. Strategy", "4. Clean",
         "5. Verify", "6. Format", "7. Export", "8. Schedule"
@@ -62,21 +62,21 @@ def render_step_progress(current_step: int):
     for idx, (col, step_label) in enumerate(zip(cols, steps), start=1):
         with col:
             if idx < current_step:
-                st.markdown(f"<div style='text-align:center; padding:8px; background:rgba(16,185,129,0.2); border:1px solid #10B981; border-radius:8px; font-weight:bold; color:#10B981; font-size:0.75rem;'>✓ {step_label}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align:center; padding:8px; background:rgba(22,163,74,0.1); border:1px solid #16A34A; border-radius:8px; font-weight:bold; color:#16A34A; font-size:0.75rem;'>✓ {step_label}</div>", unsafe_allow_html=True)
             elif idx == current_step:
-                st.markdown(f"<div style='text-align:center; padding:8px; background:linear-gradient(135deg, #8B5CF6, #6366F1); border-radius:8px; font-weight:bold; color:#FFFFFF; font-size:0.75rem; box-shadow:0 0 10px rgba(139,92,246,0.5);'>▶ {step_label}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align:center; padding:8px; background:linear-gradient(135deg, #6D28D9, #7C3AED); border-radius:8px; font-weight:bold; color:#FFFFFF; font-size:0.75rem; box-shadow:0 4px 12px rgba(109,40,217,0.3);'>▶ {step_label}</div>", unsafe_allow_html=True)
             else:
-                st.markdown(f"<div style='text-align:center; padding:8px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:8px; color:#64748B; font-size:0.75rem;'>{step_label}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align:center; padding:8px; background:#FFFFFF; border:1px solid #E5E0F0; border-radius:8px; color:#6B6478; font-size:0.75rem;'>{step_label}</div>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
 def render_kpi_card(title: str, value: str, subtext: str = "", badge: str = "Good"):
-    """Renders a glassmorphic KPI card."""
+    """Renders a Royal Purple KPI card."""
     badge_cls = f"status-badge-{badge.lower()}"
     st.markdown(f"""
     <div class="glass-card">
         <div class="metric-label">{title}</div>
         <div class="metric-value">{value}</div>
-        <div style="margin-top: 0.4rem; font-size: 0.8rem; color: #94A3B8;">{subtext}</div>
+        <div style="margin-top: 0.4rem; font-size: 0.8rem; color: #6B6478;">{subtext}</div>
         <div style="margin-top: 0.6rem;"><span class="{badge_cls}">{badge.upper()}</span></div>
     </div>
     """, unsafe_allow_html=True)
@@ -100,8 +100,8 @@ def render_onboarding_tour():
 def render_footer():
     """Renders platform footer."""
     st.markdown("""
-    <hr style="border: none; border-top: 1px solid rgba(255,255,255,0.08); margin-top: 3rem; margin-bottom: 1.5rem;">
-    <div style="text-align: center; color: #64748B; font-size: 0.85rem;">
+    <hr style="border: none; border-top: 1px solid #E5E0F0; margin-top: 3rem; margin-bottom: 1.5rem;">
+    <div style="text-align: center; color: #6B6478; font-size: 0.85rem;">
         © 2026 <b>Thiranex Solutions</b> — Built with ❤️ for Enterprise ETL, Quality Profiling & Automation.
     </div>
     """, unsafe_allow_html=True)

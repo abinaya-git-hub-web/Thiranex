@@ -153,18 +153,18 @@ def generate_pdf_report(df_clean: pd.DataFrame, profile: Dict[str, Any], audit_l
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
     styles = getSampleStyleSheet()
     
-    title_style = ParagraphStyle("TitleStyle", fontName="Helvetica-Bold", fontSize=20, leading=24, textColor=colors.HexColor("#1E1E2F"), spaceAfter=10)
-    h2_style = ParagraphStyle("H2Style", fontName="Helvetica-Bold", fontSize=14, leading=18, textColor=colors.HexColor("#6366F1"), spaceBefore=12, spaceAfter=6)
-    body_style = ParagraphStyle("BodyStyle", fontName="Helvetica", fontSize=10, leading=14, textColor=colors.HexColor("#334155"))
+    title_style = ParagraphStyle("TitleStyle", fontName="Helvetica-Bold", fontSize=20, leading=24, textColor=colors.HexColor("#1F1B2D"), spaceAfter=10)
+    h2_style = ParagraphStyle("H2Style", fontName="Helvetica-Bold", fontSize=14, leading=18, textColor=colors.HexColor("#6D28D9"), spaceBefore=12, spaceAfter=6)
+    body_style = ParagraphStyle("BodyStyle", fontName="Helvetica", fontSize=10, leading=14, textColor=colors.HexColor("#6B6478"))
 
     elements = []
 
     # Title Banner
-    elements.append(Paragraph("<b>THIRANEX SOLUTIONS</b>", ParagraphStyle("Brand", fontName="Helvetica-Bold", fontSize=10, textColor=colors.HexColor("#6366F1"))))
+    elements.append(Paragraph("<b>THIRANEX SOLUTIONS</b>", ParagraphStyle("Brand", fontName="Helvetica-Bold", fontSize=10, textColor=colors.HexColor("#6D28D9"))))
     elements.append(Paragraph("Enterprise Data Cleaning & Quality Executive Briefing", title_style))
     elements.append(Paragraph(f"Generated on: {datetime.now().strftime('%B %d, %Y at %H:%M:%S')}", body_style))
     elements.append(Spacer(1, 10))
-    elements.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor("#6366F1"), spaceAfter=15))
+    elements.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor("#6D28D9"), spaceAfter=15))
 
     scorecard = profile.get("scorecard", {})
     overall_score = scorecard.get("overall_score", 0)
@@ -177,13 +177,13 @@ def generate_pdf_report(df_clean: pd.DataFrame, profile: Dict[str, Any], audit_l
     ]
     t_score = Table(score_data, colWidths=[110, 100, 100, 100, 100])
     t_score.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#1E1E2F")),
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#6D28D9")),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
         ('FONTSIZE', (0,0), (-1,-1), 9),
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('BACKGROUND', (0,1), (-1,1), colors.HexColor("#F8FAFC")),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E1"))
+        ('BACKGROUND', (0,1), (-1,1), colors.HexColor("#F8F7FC")),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#E5E0F0"))
     ]))
     elements.append(t_score)
     elements.append(Spacer(1, 15))
@@ -207,11 +207,11 @@ def generate_pdf_report(df_clean: pd.DataFrame, profile: Dict[str, Any], audit_l
         
         t_log = Table(log_rows[:10], colWidths=[50, 130, 230, 80])
         t_log.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#6366F1")),
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#6D28D9")),
             ('TEXTCOLOR', (0,0), (-1,0), colors.white),
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
             ('FONTSIZE', (0,0), (-1,-1), 8),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#E2E8F0"))
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#E5E0F0"))
         ]))
         elements.append(t_log)
 
@@ -220,12 +220,12 @@ def generate_pdf_report(df_clean: pd.DataFrame, profile: Dict[str, Any], audit_l
 
 def generate_html_report(df_clean: pd.DataFrame, profile: Dict[str, Any], audit_log: pd.DataFrame) -> str:
     """
-    Generates a standalone interactive HTML report with glassmorphism styling.
+    Generates a standalone interactive HTML report with Royal Purple styling.
     """
     scorecard = profile.get("scorecard", {})
     overall_score = scorecard.get("overall_score", 0)
     badge = scorecard.get("badge", "N/A")
-    badge_color = scorecard.get("badge_color", "#10B981")
+    badge_color = scorecard.get("badge_color", "#16A34A")
 
     table_html = df_clean.head(15).to_html(classes="styled-table", index=False)
     audit_html = audit_log.to_html(classes="styled-table", index=False) if audit_log is not None and not audit_log.empty else "<p>No cleaning operations recorded.</p>"
@@ -236,9 +236,9 @@ def generate_html_report(df_clean: pd.DataFrame, profile: Dict[str, Any], audit_
     <title>Thiranex Solutions — Data Quality Report</title>
     <style>
         body {{
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e1e2f 100%);
-            color: #f8fafc;
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: #F8F7FC;
+            color: #1F1B2D;
             margin: 0;
             padding: 30px;
         }}
@@ -247,13 +247,19 @@ def generate_html_report(df_clean: pd.DataFrame, profile: Dict[str, Any], audit_
             margin: 0 auto;
         }}
         .glass-card {{
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: #FFFFFF;
+            border: 1px solid #E5E0F0;
             border-radius: 16px;
             padding: 25px;
             margin-bottom: 25px;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            box-shadow: 0 4px 20px rgba(109, 40, 217, 0.05);
+        }}
+        .glass-card h1, .glass-card h2 {{
+            color: #1F1B2D;
+            margin-top: 0;
+        }}
+        .glass-card p {{
+            color: #6B6478;
         }}
         .kpi-grid {{
             display: grid;
@@ -261,15 +267,18 @@ def generate_html_report(df_clean: pd.DataFrame, profile: Dict[str, Any], audit_
             gap: 20px;
         }}
         .kpi-card {{
-            background: rgba(255, 255, 255, 0.08);
+            background: #F8F7FC;
+            border: 1px solid #E5E0F0;
             border-radius: 12px;
             padding: 20px;
             text-align: center;
+            color: #6B6478;
         }}
         .kpi-val {{
             font-size: 32px;
-            font-weight: bold;
-            color: #6366f1;
+            font-weight: 800;
+            color: #6D28D9;
+            margin: 8px 0;
         }}
         .badge {{
             display: inline-block;
@@ -283,17 +292,23 @@ def generate_html_report(df_clean: pd.DataFrame, profile: Dict[str, Any], audit_
             width: 100%;
             border-collapse: collapse;
             margin: 15px 0;
-            font-size: 14px;
+            font-size: 13px;
+            border-radius: 8px;
+            overflow: hidden;
         }}
         .styled-table th {{
-            background-color: #6366f1;
+            background-color: #6D28D9;
             color: white;
             text-align: left;
             padding: 12px;
         }}
         .styled-table td {{
             padding: 10px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid #E5E0F0;
+            color: #1F1B2D;
+        }}
+        .styled-table tr:hover td {{
+            background: rgba(109, 40, 217, 0.03);
         }}
     </style>
 </head>

@@ -81,15 +81,15 @@ def generate_pdf_report(df_clean: pd.DataFrame, profile: Dict[str, Any], audit_l
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
     styles = getSampleStyleSheet()
     
-    title_style = ParagraphStyle("TitleStyle", fontName="Helvetica-Bold", fontSize=18, leading=22, textColor=colors.HexColor("#1E1E2F"))
-    body_style = ParagraphStyle("BodyStyle", fontName="Helvetica", fontSize=10, leading=14, textColor=colors.HexColor("#334155"))
+    title_style = ParagraphStyle("TitleStyle", fontName="Helvetica-Bold", fontSize=18, leading=22, textColor=colors.HexColor("#1F1B2D"))
+    body_style = ParagraphStyle("BodyStyle", fontName="Helvetica", fontSize=10, leading=14, textColor=colors.HexColor("#6B6478"))
 
     elements = [
-        Paragraph("<b>THIRANEX SOLUTIONS</b>", ParagraphStyle("Brand", fontName="Helvetica-Bold", fontSize=10, textColor=colors.HexColor("#6366F1"))),
+        Paragraph("<b>THIRANEX SOLUTIONS</b>", ParagraphStyle("Brand", fontName="Helvetica-Bold", fontSize=10, textColor=colors.HexColor("#6D28D9"))),
         Paragraph("Enterprise Data Cleaning & Quality Executive Briefing", title_style),
         Paragraph(f"Generated: {datetime.now().strftime('%B %d, %Y at %H:%M:%S')}", body_style),
         Spacer(1, 10),
-        HRFlowable(width="100%", thickness=2, color=colors.HexColor("#6366F1"), spaceAfter=15)
+        HRFlowable(width="100%", thickness=2, color=colors.HexColor("#6D28D9"), spaceAfter=15)
     ]
 
     scorecard = profile.get("scorecard", {})
@@ -99,11 +99,11 @@ def generate_pdf_report(df_clean: pd.DataFrame, profile: Dict[str, Any], audit_l
     ]
     t_score = Table(score_data, colWidths=[120, 120, 120, 120])
     t_score.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#1E1E2F")),
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#6D28D9")),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E1"))
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#E5E0F0"))
     ]))
     elements.append(t_score)
 
@@ -111,7 +111,7 @@ def generate_pdf_report(df_clean: pd.DataFrame, profile: Dict[str, Any], audit_l
     return buffer.getvalue()
 
 def generate_html_report(df_clean: pd.DataFrame, profile: Dict[str, Any], audit_log: pd.DataFrame) -> str:
-    """Generates standalone HTML report."""
+    """Generates standalone HTML report with Royal Purple styling."""
     scorecard = profile.get("scorecard", {})
     table_html = df_clean.head(15).to_html(classes="styled-table", index=False)
     
@@ -120,17 +120,21 @@ def generate_html_report(df_clean: pd.DataFrame, profile: Dict[str, Any], audit_
 <head>
     <title>Thiranex Solutions — Report</title>
     <style>
-        body {{ font-family: sans-serif; background: #0f172a; color: #f8fafc; padding: 25px; }}
-        .card {{ background: rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; margin-bottom: 20px; }}
-        .styled-table {{ width: 100%; border-collapse: collapse; }}
-        .styled-table th {{ background: #6366f1; color: white; padding: 8px; }}
-        .styled-table td {{ padding: 8px; border-bottom: 1px solid #334155; }}
+        body {{ font-family: 'Inter', -apple-system, sans-serif; background: #F8F7FC; color: #1F1B2D; padding: 30px; }}
+        .card {{ background: #FFFFFF; padding: 24px; border-radius: 14px; margin-bottom: 24px; border: 1px solid #E5E0F0; box-shadow: 0 4px 15px rgba(109, 40, 217, 0.05); }}
+        h1 {{ color: #1F1B2D; font-size: 24px; margin-top: 0; }}
+        h2 {{ color: #6D28D9; font-size: 18px; }}
+        p {{ color: #6B6478; font-size: 15px; }}
+        .styled-table {{ width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; }}
+        .styled-table th {{ background: #6D28D9; color: white; padding: 10px 14px; text-align: left; font-size: 13px; }}
+        .styled-table td {{ padding: 10px 14px; border-bottom: 1px solid #E5E0F0; font-size: 13px; color: #1F1B2D; }}
+        .styled-table tr:hover td {{ background: rgba(109, 40, 217, 0.03); }}
     </style>
 </head>
 <body>
     <div class="card">
         <h1>⚡ Thiranex Solutions Data Quality Report</h1>
-        <p>Overall Health Score: {scorecard.get('overall_score', 0)} / 100</p>
+        <p>Overall Health Score: <b>{scorecard.get('overall_score', 0)} / 100</b></p>
     </div>
     <div class="card">
         <h2>Cleaned Data Preview</h2>

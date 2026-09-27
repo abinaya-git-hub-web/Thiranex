@@ -209,13 +209,13 @@ def _calculate_data_quality_scorecard(df: pd.DataFrame, df_col_summary: pd.DataF
 
     if overall_score >= 80:
         badge = "Good"
-        badge_color = "#10B981" # Green
+        badge_color = "#16A34A" # Success Green
     elif overall_score >= 50:
         badge = "Warning"
-        badge_color = "#F59E0B" # Orange
+        badge_color = "#D97706" # Warning Amber
     else:
         badge = "Critical"
-        badge_color = "#EF4444" # Red
+        badge_color = "#DC2626" # Error Red
 
     # Actionable Recommendations
     recs = []

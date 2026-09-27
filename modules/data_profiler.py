@@ -184,11 +184,11 @@ def calculate_scorecard(df: pd.DataFrame, df_col_summary: pd.DataFrame) -> Dict[
     )
 
     if overall_score >= 80:
-        badge, badge_color = "Good", "#10B981"
+        badge, badge_color = "Good", "#16A34A"
     elif overall_score >= 50:
-        badge, badge_color = "Warning", "#F59E0B"
+        badge, badge_color = "Warning", "#D97706"
     else:
-        badge, badge_color = "Critical", "#EF4444"
+        badge, badge_color = "Critical", "#DC2626"
 
     recs = []
     if completeness_score < 90:

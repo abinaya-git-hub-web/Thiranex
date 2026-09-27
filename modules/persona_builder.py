@@ -23,7 +23,7 @@ CREATIVE_NAME_MAP = {
     "Noise / Outliers": "⚡ Anomalous Power Buyers"
 }
 
-ACCENT_COLORS = ["#8B5CF6", "#3B82F6", "#10B981", "#F59E0B", "#EC4899", "#06B6D4", "#6366F1"]
+ACCENT_COLORS = ["#6D28D9", "#7C3AED", "#8B5CF6", "#A78BFA", "#16A34A", "#D97706", "#4C1D95"]
 
 
 def generate_segment_personas(df: pd.DataFrame, segment_col: str, mappings: Dict[str, str] = None) -> List[Dict[str, Any]]:
