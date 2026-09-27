@@ -11,6 +11,11 @@ import pandas as pd
 import numpy as np
 import warnings
 import json
+import os
+from dotenv import load_dotenv
+
+# Initialize Environment Configuration
+load_dotenv()
 
 # Page Configuration
 st.set_page_config(
@@ -109,6 +114,94 @@ def main():
                 st.session_state.lineage_tracker = nf.DataLineageTracker()
                 st.session_state.lineage_tracker.record_step("Uploaded Batch Files", combined_df)
                 st.toast(f"✅ Loaded {len(combined_df)} records!", icon="🎉")
+
+    elif source_type == "🗂️ Folder Monitoring Watcher":
+        default_folder = os.getenv("WATCH_DIRECTORY", "./data_inbox")
+        watch_folder = st.sidebar.text_input("Folder Path", value=default_folder)
+        if st.sidebar.button("🔍 Scan & Ingest Directory", use_container_width=True):
+            files, err = dl.monitor_directory_for_new_files(watch_folder)
+            if err:
+                st.sidebar.error(err)
+            elif files:
+                dfs = []
+                for fpath in files:
+                    d, _ = dl.load_single_file(fpath)
+                    if d is not None:
+                        dfs.append(d)
+                if dfs:
+                    st.session_state.df_raw = pd.concat(dfs, ignore_index=True)
+                    st.session_state.df_clean = st.session_state.df_raw.copy()
+                    st.session_state.lineage_tracker = nf.DataLineageTracker()
+                    st.session_state.lineage_tracker.record_step(f"Watched Folder: {watch_folder}", st.session_state.df_raw)
+                    st.toast(f"✅ Ingested {len(files)} files from watcher!", icon="📁")
+                else:
+                    st.sidebar.warning("No readable data files found in directory.")
+            else:
+                st.sidebar.info("No new files found to ingest.")
+
+    elif source_type == "🗄️ Database Integration (SQL / MongoDB)":
+        db_flavor = st.sidebar.selectbox("Database Engine", ["PostgreSQL / MySQL", "SQLite", "MongoDB (NoSQL)"])
+        if db_flavor == "MongoDB (NoSQL)":
+            def_mongo = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+            mongo_uri = st.sidebar.text_input("MongoDB Connection URI", value=def_mongo)
+            mongo_db = st.sidebar.text_input("Database Name", value=os.getenv("MONGODB_DB_NAME", "thiranex_db"))
+            mongo_col = st.sidebar.text_input("Collection Name", value=os.getenv("MONGODB_COLLECTION", "records"))
+            if st.sidebar.button("🔌 Query MongoDB Collection", use_container_width=True):
+                df_db, err = dl.connect_nosql_mongodb(mongo_uri, mongo_db, mongo_col)
+                if err:
+                    st.sidebar.error(err)
+                elif df_db is not None:
+                    st.session_state.df_raw = df_db
+                    st.session_state.df_clean = df_db.copy()
+                    st.session_state.lineage_tracker = nf.DataLineageTracker()
+                    st.session_state.lineage_tracker.record_step(f"Ingested MongoDB: {mongo_col}", df_db)
+                    st.toast("✅ Ingested from MongoDB!", icon="🗄️")
+        else:
+            def_sql = os.getenv("DATABASE_URL") or os.getenv("SQL_CONNECTION_STRING") or ""
+            sql_type = "SQLite" if "SQLite" in db_flavor else "PostgreSQL"
+            conn_str = st.sidebar.text_input("Connection String", value=def_sql, placeholder="postgresql://user:pass@host:5432/dbname" if sql_type != "SQLite" else ":memory:")
+            sql_query = st.sidebar.text_area("SQL Query", value="SELECT * FROM sales_records LIMIT 500")
+            if st.sidebar.button("🔌 Run Database Query", use_container_width=True):
+                df_db, err = dl.connect_sql_database(sql_type, conn_str, sql_query)
+                if err:
+                    st.sidebar.error(err)
+                elif df_db is not None:
+                    st.session_state.df_raw = df_db
+                    st.session_state.df_clean = df_db.copy()
+                    st.session_state.lineage_tracker = nf.DataLineageTracker()
+                    st.session_state.lineage_tracker.record_step(f"Ingested SQL ({sql_type})", df_db)
+                    st.toast("✅ Ingested from Database!", icon="🗄️")
+
+    elif source_type == "☁️ Cloud Storage (Google Sheets / S3 / Azure)":
+        cloud_provider = st.sidebar.selectbox("Cloud Storage Provider", ["Google Sheets", "AWS S3", "Azure Blob"])
+        default_target = os.getenv("CLOUD_STORAGE_URI", "")
+        target_uri = st.sidebar.text_input("Bucket / Endpoint / URL", value=default_target, placeholder="https://docs.google.com/spreadsheets/d/... or s3://bucket/...")
+        cloud_file = st.sidebar.text_input("File Key / Path", value="data/export.parquet")
+        if st.sidebar.button("☁️ Ingest from Cloud Storage", use_container_width=True):
+            df_cloud, err = dl.fetch_cloud_storage(cloud_provider, target_uri, cloud_file)
+            if err:
+                st.sidebar.error(err)
+            elif df_cloud is not None:
+                st.session_state.df_raw = df_cloud
+                st.session_state.df_clean = df_cloud.copy()
+                st.session_state.lineage_tracker = nf.DataLineageTracker()
+                st.session_state.lineage_tracker.record_step(f"Ingested Cloud ({cloud_provider})", df_cloud)
+                st.toast(f"✅ Ingested from {cloud_provider}!", icon="☁️")
+
+    elif source_type == "🌐 REST API & Web Ingestion":
+        default_api = os.getenv("REST_API_ENDPOINT") or os.getenv("API_URL") or "https://jsonplaceholder.typicode.com/posts"
+        api_url = st.sidebar.text_input("REST API Endpoint URL", value=default_api)
+        api_headers = st.sidebar.text_input("Custom Headers (JSON)", value="{}")
+        if st.sidebar.button("🌐 Fetch Live API Data", use_container_width=True):
+            df_api, err = dl.ingest_rest_api(api_url, api_headers)
+            if err:
+                st.sidebar.error(err)
+            elif df_api is not None:
+                st.session_state.df_raw = df_api
+                st.session_state.df_clean = df_api.copy()
+                st.session_state.lineage_tracker = nf.DataLineageTracker()
+                st.session_state.lineage_tracker.record_step(f"Ingested REST API: {api_url}", df_api)
+                st.toast("✅ Live REST API Data Ingested!", icon="🌐")
 
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 🧹 Quick Operations")

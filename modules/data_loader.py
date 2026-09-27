@@ -94,11 +94,15 @@ def scan_folder(folder_path: str) -> Tuple[List[str], Optional[str]]:
                 found_files.append(os.path.join(root, file))
     return sorted(found_files), None
 
-def connect_sql_database(db_type: str, connection_string: str, query: str) -> Tuple[Optional[pd.DataFrame], Optional[str]]:
+def connect_sql_database(db_type: str, connection_string: str = "", query: str = "") -> Tuple[Optional[pd.DataFrame], Optional[str]]:
     """
     Executes SQL queries against SQLite, MySQL, PostgreSQL or returns simulated DB response.
+    Supports environment variables DATABASE_URL or SQL_CONNECTION_STRING.
     """
     try:
+        if not connection_string:
+            connection_string = os.getenv("DATABASE_URL") or os.getenv("SQL_CONNECTION_STRING") or ""
+
         if db_type == "SQLite":
             # Check if connection_string is a file path or in-memory
             db_path = connection_string.strip() if connection_string else ":memory:"
@@ -117,7 +121,7 @@ def connect_sql_database(db_type: str, connection_string: str, query: str) -> Tu
                 return df, None
             else:
                 conn = sqlite3.connect(db_path)
-                df = pd.read_sql_query(query, conn)
+                df = pd.read_sql_query(query if query else "SELECT * FROM sqlite_master", conn)
                 conn.close()
                 return df, None
         elif db_type in ["MySQL", "PostgreSQL"]:
@@ -125,7 +129,7 @@ def connect_sql_database(db_type: str, connection_string: str, query: str) -> Tu
             try:
                 import sqlalchemy
                 engine = sqlalchemy.create_engine(connection_string)
-                df = pd.read_sql(query, engine)
+                df = pd.read_sql(query if query else "SELECT 1", engine)
                 return df, None
             except Exception:
                 # Simulated query output for local demo
@@ -140,11 +144,16 @@ def connect_sql_database(db_type: str, connection_string: str, query: str) -> Tu
     except Exception as e:
         return None, f"Database Connection Error: {str(e)}"
 
-def connect_nosql_mongodb(uri: str, db_name: str, collection: str) -> Tuple[Optional[pd.DataFrame], Optional[str]]:
+def connect_nosql_mongodb(uri: str = "", db_name: str = "", collection: str = "") -> Tuple[Optional[pd.DataFrame], Optional[str]]:
     """
     Connects to MongoDB collection or returns simulated NoSQL documents.
+    Supports environment variables MONGODB_URI, MONGODB_DB_NAME, MONGODB_COLLECTION.
     """
     try:
+        uri = uri or os.getenv("MONGODB_URI") or "mongodb://localhost:27017"
+        db_name = db_name or os.getenv("MONGODB_DB_NAME") or "thiranex_db"
+        collection = collection or os.getenv("MONGODB_COLLECTION") or "enterprise_data"
+
         import pymongo
         client = pymongo.MongoClient(uri, serverSelectionTimeoutMS=2000)
         db = client[db_name]
@@ -199,14 +208,15 @@ def fetch_cloud_storage(provider: str, bucket_or_url: str, file_path: str) -> Tu
     except Exception as e:
         return None, f"Cloud Ingestion Error: {str(e)}"
 
-def ingest_rest_api(url: str, headers_json: str = "{}") -> Tuple[Optional[pd.DataFrame], Optional[str]]:
+def ingest_rest_api(url: str = "", headers_json: str = "{}") -> Tuple[Optional[pd.DataFrame], Optional[str]]:
     """
     Ingests JSON data from REST API endpoints.
+    Prioritizes environment variables REST_API_ENDPOINT or API_URL when url is omitted.
     """
     try:
         if not url:
-            # Fallback to public demo endpoint
-            url = "https://jsonplaceholder.typicode.com/posts"
+            # Fallback to production environment variable or public demo endpoint
+            url = os.getenv("REST_API_ENDPOINT") or os.getenv("API_URL") or "https://jsonplaceholder.typicode.com/posts"
         
         hdr = json.loads(headers_json) if headers_json else {}
         resp = requests.get(url, headers=hdr, timeout=5)
